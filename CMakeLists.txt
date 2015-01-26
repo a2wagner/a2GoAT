@@ -30,6 +30,12 @@ set(ROOT_LIBRARIES "${ROOT_LIBRARIES} -lEG")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 
+set(MOD "KinFitter")
+ROOT_PREPARE_LIB("src/KinFitter" "inc/KinFitter" "inc/KinFitter/KinFitter_LinkDef.h" "src/KinFitter/KinFitterDict.cc" SRCS EXESRCS)
+add_library("lib${MOD}" SHARED ${SRCS})
+target_link_libraries("lib${MOD}" ${ROOT_LIBRARIES} Minuit)
+set_target_properties("lib${MOD}" PROPERTIES OUTPUT_NAME ${MOD})
+
 set(GOAT_BASE
    inc/GTree.h
    inc/GTreeTrack.h
