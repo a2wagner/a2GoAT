@@ -64,7 +64,7 @@ protected :
 
 private:
 
-  ClassDef(TFitConstraintEpGaus, 1)   // Fit constraint: energy and momentum conservation
+  //ClassDef(TFitConstraintEpGaus, 1)   // Fit constraint: energy and momentum conservation
 
 };
 

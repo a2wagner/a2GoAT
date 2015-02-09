@@ -45,7 +45,7 @@ private:
   vector<TAbsFitParticle*> _particles;    // Vector containing constrained particles
   Double_t _constraint;                   // Value of constraint
 
-  ClassDef(TFitConstraintPt, 1)   // Fit constraint: energy and momentum conservation
+  //ClassDef(TFitConstraintPt, 1)   // Fit constraint: energy and momentum conservation
 };
 
 #endif

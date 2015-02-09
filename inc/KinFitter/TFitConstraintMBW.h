@@ -48,7 +48,7 @@ protected :
   
   void init();
   
-  ClassDef(TFitConstraintMBW, 1)   // Fit constraint: mass conservation
+  //ClassDef(TFitConstraintMBW, 1)   // Fit constraint: mass conservation
   
 };
 

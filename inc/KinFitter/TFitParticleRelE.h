@@ -32,7 +32,7 @@ protected :
 
   void init(TLorentzVector* pini, const TMatrixD* theCovMatrix);
 
-  ClassDef(TFitParticleRelE, 1)
+  //ClassDef(TFitParticleRelE, 1)
 
 private:
   

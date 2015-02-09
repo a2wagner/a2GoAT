@@ -35,7 +35,7 @@ protected :
 
   void init(TVector3* p, Double_t M, const TMatrixD* theCovMatrix);
 
-  ClassDef(TFitParticlePtEtaPhi, 1)    // Particle with spherical 4vector parametrization and free mass
+  //ClassDef(TFitParticlePtEtaPhi, 1)    // Particle with spherical 4vector parametrization and free mass
 
 private:
   

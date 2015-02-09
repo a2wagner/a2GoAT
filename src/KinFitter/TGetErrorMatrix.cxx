@@ -22,7 +22,7 @@ using namespace std;
 #include "TPaveText.h"
 
 
-ClassImp(TGetErrorMatrix)
+//ClassImp(TGetErrorMatrix)
   
   
 TGetErrorMatrix::TGetErrorMatrix( const TAbsFitParticle* theParticle, 

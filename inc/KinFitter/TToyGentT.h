@@ -130,7 +130,7 @@ private :
 
   int _verbosity;
 
-  ClassDef(TToyGentT, 1)
+  //ClassDef(TToyGentT, 1)
 };
 
 #endif

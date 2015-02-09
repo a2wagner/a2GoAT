@@ -22,7 +22,7 @@ using namespace std;
 #include "TLorentzVector.h"
 #include "TMath.h"
 
-ClassImp(TFitParticleRelPxPyPz)
+//ClassImp(TFitParticleRelPxPyPz)
 
 //----------------
 // Constructor --

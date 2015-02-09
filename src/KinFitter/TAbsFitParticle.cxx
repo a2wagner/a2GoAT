@@ -18,7 +18,7 @@ using namespace std;
 #include <iomanip>
 #include "TClass.h"
 
-ClassImp(TAbsFitParticle)
+//ClassImp(TAbsFitParticle)
 
 TAbsFitParticle::TAbsFitParticle():
   TNamed("NoName","NoTitle")

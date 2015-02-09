@@ -140,7 +140,7 @@ private :
 
   Bool_t _verbose;                   // Toggle verbose output
 
-  ClassDef(TGetErrorMatrix, 1)
+  //ClassDef(TGetErrorMatrix, 1)
 };
 
 #endif

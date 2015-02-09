@@ -44,7 +44,7 @@ protected :
 
   void init();
 
-  ClassDef(TFitConstraintMGaus, 1)   // Fit constraint: mass conservation
+  //ClassDef(TFitConstraintMGaus, 1)   // Fit constraint: mass conservation
 
 };
 

@@ -19,7 +19,7 @@ using namespace std;
 #include <iostream>
 #include "TClass.h"
 
-ClassImp(TFitConstraintEp)
+//ClassImp(TFitConstraintEp)
 
 //----------------
 // Constructor --

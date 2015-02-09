@@ -31,7 +31,7 @@ protected :
 
   void init(TLorentzVector* pini, const TMatrixD* theCovMatrix);
 
-  ClassDef(TFitParticlePxPyPzM, 1)  // Particle with cartesian 4vector parametrization
+  //ClassDef(TFitParticlePxPyPzM, 1)  // Particle with cartesian 4vector parametrization
 
 private:
   

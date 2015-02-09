@@ -30,7 +30,7 @@ class TFitParticlePInvThetaPhiM: public TAbsFitParticle {
   
   void init(TLorentzVector* pini, const TMatrixD* theCovMatrix );
   
-  ClassDef(TFitParticlePInvThetaPhiM, 1)    // Particle with spherical 4vector parametrization (1/p, theta, phi) and free energy
+  //ClassDef(TFitParticlePInvThetaPhiM, 1)    // Particle with spherical 4vector parametrization (1/p, theta, phi) and free energy
   
  private:
 };

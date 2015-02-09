@@ -77,7 +77,7 @@ protected :
 
 private:
 
-  ClassDef(TFitConstraintEp, 1)   // Fit constraint: energy and momentum conservation
+  //ClassDef(TFitConstraintEp, 1)   // Fit constraint: energy and momentum conservation
 
 };
 

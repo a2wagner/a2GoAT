@@ -31,7 +31,7 @@ protected :
 
   void init(TVector3* p, Double_t M, const TMatrixD* theCovMatrix);
 
-  ClassDef(TFitParticlePxPyPz, 1)    // Particle with cartesian 4vector parametrization and constrained mass
+  //ClassDef(TFitParticlePxPyPz, 1)    // Particle with cartesian 4vector parametrization and constrained mass
   
 private:
 };

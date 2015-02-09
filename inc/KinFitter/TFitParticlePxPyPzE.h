@@ -31,7 +31,7 @@ protected :
 
   void init(TLorentzVector* pini, const TMatrixD* theCovMatrix);
 
-  ClassDef(TFitParticlePxPyPzE, 1)  // Particle with cartesian 4vector parametrization and free energy
+  //ClassDef(TFitParticlePxPyPzE, 1)  // Particle with cartesian 4vector parametrization and free energy
 
 private:
   

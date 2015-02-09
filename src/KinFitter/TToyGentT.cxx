@@ -19,7 +19,7 @@
 #include "TROOT.h"
 #include "TString.h"
 
-ClassImp(TToyGentT)
+//ClassImp(TToyGentT)
 
 TToyGentT::TToyGentT( const TAbsFitParticle* Whad_d1, 
 		      const TAbsFitParticle* Whad_d2, 

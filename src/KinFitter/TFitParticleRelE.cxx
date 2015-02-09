@@ -24,7 +24,7 @@ using namespace std;
 #include "TLorentzVector.h"
 #include "TMath.h"
 
-ClassImp(TFitParticleRelE)
+//ClassImp(TFitParticleRelE)
 
 //----------------
 // Constructor --

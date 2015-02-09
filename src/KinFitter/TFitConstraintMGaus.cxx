@@ -21,7 +21,7 @@ using namespace std;
 #include "TLorentzVector.h"
 #include "TClass.h"
 
-ClassImp(TFitConstraintMGaus)
+//ClassImp(TFitConstraintMGaus)
 
 //----------------
 // Constructor --

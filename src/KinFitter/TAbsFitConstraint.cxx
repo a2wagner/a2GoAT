@@ -19,7 +19,7 @@ using namespace std;
 #include "TClass.h"
 
 
-ClassImp(TAbsFitConstraint)
+//ClassImp(TAbsFitConstraint)
 
 
 TAbsFitConstraint::TAbsFitConstraint() 

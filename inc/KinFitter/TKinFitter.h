@@ -21,7 +21,7 @@ public :
   TKinFitter(const TString &name, const TString &title);  
   ~TKinFitter();
   void reset();
-  void resetStatus();   
+  void resetStatus();
 
   Int_t fit();
 
@@ -70,7 +70,7 @@ public :
   const TAbsFitParticle* getParticle( Int_t index ) { return _particles[index]; }    // Particle with given index
   Int_t getParticleIndex( TAbsFitParticle* particle );                               // Index of given particle
   Int_t getParameterIndex( TAbsFitParticle* particle, Int_t aPar );                  // Index of given particles parameter
- 
+
   void print();
   void printMatrices();
 
@@ -156,7 +156,7 @@ private :
   Int_t _status;   // Status of the last fit;_
   Int_t _nbIter;   // number of iteration performed in the fit
 
-  ClassDef(TKinFitter, 1) // Class to perform kinematic fit with non-linear constraints
+  //ClassDef(TKinFitter, 1) // Class to perform kinematic fit with non-linear constraints
 };
 
 #endif

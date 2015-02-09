@@ -3,7 +3,7 @@
 
 
 //________________________________________________________________
-// 
+//
 // TKinFitter::
 // --------------------
 //
@@ -22,7 +22,7 @@ using namespace std;
 
 #include "TArrayI.h"
 
-ClassImp(TKinFitter)
+//ClassImp(TKinFitter)
 
 TKinFitter::TKinFitter():
   TNamed("UnNamed", "UnTitled"),
@@ -299,7 +299,7 @@ void TKinFitter::addUnmeasParticle( TAbsFitParticle* particle ) {
 
 }
 
-void TKinFitter::addUnmeasParticles( TAbsFitParticle* p1, TAbsFitParticle* p2, TAbsFitParticle* p3, 
+void TKinFitter::addUnmeasParticles( TAbsFitParticle* p1, TAbsFitParticle* p2, TAbsFitParticle* p3,
 				     TAbsFitParticle* p4, TAbsFitParticle* p5, TAbsFitParticle* p6,
 				     TAbsFitParticle* p7, TAbsFitParticle* p8, TAbsFitParticle* p9) {
   // add many unmeasured particles
@@ -367,7 +367,7 @@ void TKinFitter::addConstraint( TAbsFitConstraint* constraint ) {
 
 }
 
-void TKinFitter::addConstraints( TAbsFitConstraint* c1, TAbsFitConstraint* c2, TAbsFitConstraint* c3, 
+void TKinFitter::addConstraints( TAbsFitConstraint* c1, TAbsFitConstraint* c2, TAbsFitConstraint* c3,
 				 TAbsFitConstraint* c4, TAbsFitConstraint* c5, TAbsFitConstraint* c6,
 				 TAbsFitConstraint* c7, TAbsFitConstraint* c8, TAbsFitConstraint* c9) {
   // add many constraints
@@ -396,7 +396,7 @@ void TKinFitter::setParamMeas( Int_t index ) {
     _paramMeasured[index] = true;
     countMeasParams();
     countUnmeasParams();
-  } 
+  }
 
 }
 
@@ -421,7 +421,7 @@ void TKinFitter::setParamUnmeas( Int_t index ) {
     _paramMeasured[index] = false;
     countMeasParams();
     countUnmeasParams();
-  } 
+  }
 
 }
 
@@ -568,12 +568,12 @@ Int_t TKinFitter::fit() {
     calcDeltaY();
     // cout << "calcLambda();" << endl;
     calcLambda();
-   
+
     if( _verbosity >= 3 ) printMatrices();
 
     if( _verbosity >= 2 ) {
       cout << endl << endl << endl << endl;
-      print();   
+      print();
       cout <<"---------" <<endl ;
       cout << endl << endl << endl << endl;
     }
@@ -581,7 +581,7 @@ Int_t TKinFitter::fit() {
     // Apply calculated corrections to measured and unmeasured particles
     applyDeltaAY();
     _nbIter++;
-    
+
     //calculate F and S
     prevF = currF;
     currF = getF();
@@ -596,7 +596,7 @@ Int_t TKinFitter::fit() {
       if(_verbosity>=2) cout << "The current value of S is NaN. Fit will be aborted." << endl;
       _status = -10;
     }
-    
+
     // If S or F are getting bigger reduce step width
 //     Int_t nstep =0;
 //     while ( currF >= prevF ) {
@@ -611,7 +611,7 @@ Int_t TKinFitter::fit() {
 //       currF = getF();
 //       currS = getS();
 //     }
-    
+
     // Test convergence
     isConverged = converged(currF, prevS, currS);
 
@@ -711,7 +711,7 @@ Bool_t TKinFitter::calcV() {
     // Get constraint and its covariance matrix
     TAbsFitConstraint* constraint = _constraints[iC];
     Int_t nParP = constraint->getNPar();
-    
+
     if (nParP > 0) {
       const TMatrixD* covMatrix =  constraint->getCovMatrix();
       for (UInt_t iX = 0; iX < nParP; iX++) {
@@ -845,7 +845,7 @@ Bool_t TKinFitter::calcB() {
       }
       offsetParam += deriv->GetNcols();
       constrParamOffset += deriv->GetNcols();
-      
+
       delete deriv;
     }
 
@@ -931,7 +931,7 @@ Bool_t TKinFitter::calcC21() {
   C21 *= -1.;
   _C21.ResizeTo( C21 );
   _C21 = C21;
-  
+
   TMatrixD C21T( TMatrixD::kTransposed,  _C21 );
   _C21T.ResizeTo( C21T );
   _C21T = C21T;
@@ -1031,13 +1031,13 @@ Bool_t TKinFitter::calcC() {
     Int_t indexUnmeasParam = 0;
     deltaastar.ResizeTo( _nParA, 1 );
     for (UInt_t indexParticle = 0; indexParticle < _particles.size(); indexParticle++) {
-    
+
       TAbsFitParticle* particle = _particles[indexParticle];
       const TMatrixD* astar = particle->getParCurr();
       const TMatrixD* a = particle->getParIni();
       TMatrixD deltaastarpart(*astar);
       deltaastarpart -= *a;
-      
+
       // Copy unmeasured parameters
       for (int indexParam = 0; indexParam < deltaastarpart.GetNrows(); indexParam++) {
 	Bool_t measured =  (Bool_t) _paramMeasured[indexParam + offsetParam];
@@ -1047,7 +1047,7 @@ Bool_t TKinFitter::calcC() {
 	}
       }
       offsetParam += deltaastarpart.GetNrows();
-      
+
     }
 
     if ( _verbosity >= 3 ) {
@@ -1193,7 +1193,7 @@ Bool_t TKinFitter::calcVFit() {
   //     (a)   ( C21  C22  )
   //
   // Vfit(lambda) = (-C33)
-  
+
   // Calculate covariance matrix of lambda
   _lambdaVFit.ResizeTo( _C33 );
   _lambdaVFit = _C33;
@@ -1300,7 +1300,7 @@ Bool_t TKinFitter::applyDeltaAY() {
   Int_t offsetParam = 0;
   Int_t indexY = 0;
   Int_t indexA = 0;
-  
+
   // apply corrections to particles
   for (UInt_t indexParticle = 0; indexParticle < _particles.size(); indexParticle++) {
 
@@ -1330,20 +1330,20 @@ Bool_t TKinFitter::applyDeltaAY() {
     TAbsFitConstraint* constraint = _constraints[indexConstraint];
     Int_t nbParams = constraint->getNPar();
     if ( nbParams > 0 ) {
-      
+
       TMatrixD params( nbParams, 1 );
       for (Int_t index = 0; index < nbParams; index++) {
 	params(index, 0) = _deltaY(indexY, 0);
 	indexY++;
       }
       constraint->applyDeltaAlpha( &params );
-      
+
     }
   }
 
-  
+
   return true;
-  
+
 }
 
 Double_t TKinFitter::getF() {
@@ -1354,7 +1354,7 @@ Double_t TKinFitter::getF() {
   for (UInt_t indexConstr = 0; indexConstr < _constraints.size(); indexConstr++) {
     F += TMath::Abs( _constraints[indexConstr]->getCurrentValue() );
   }
-  
+
   return F;
 
 }
@@ -1395,7 +1395,7 @@ TString TKinFitter::getStatusString() {
   TString statusstring = "";
 
   switch ( _status ) {
-    
+
   case -1: {
     statusstring = "NO FIT PERFORMED";
     break;
@@ -1421,7 +1421,7 @@ TString TKinFitter::getStatusString() {
     break;
   }
   }
-    
+
   return statusstring;
 
 }

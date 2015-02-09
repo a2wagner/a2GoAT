@@ -20,7 +20,7 @@ using namespace std;
 #include <iostream>
 #include "TClass.h"
 
-ClassImp(TFitConstraintEpGaus)
+//ClassImp(TFitConstraintEpGaus)
 
 //----------------
 // Constructor --

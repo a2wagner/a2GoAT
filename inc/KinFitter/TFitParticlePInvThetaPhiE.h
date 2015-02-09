@@ -30,7 +30,7 @@ public :
 
   void init(TLorentzVector* pini, const TMatrixD* theCovMatrix );
   
-  ClassDef(TFitParticlePInvThetaPhiE, 1)    // Particle with spherical 4vector parametrization (1/p, theta, phi) and free energy
+  //ClassDef(TFitParticlePInvThetaPhiE, 1)    // Particle with spherical 4vector parametrization (1/p, theta, phi) and free energy
   
 private:
 };

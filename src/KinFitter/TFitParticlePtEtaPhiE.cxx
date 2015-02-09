@@ -22,7 +22,7 @@ using namespace std;
 
 #include "TMath.h"
 
-ClassImp(TFitParticlePtEtaPhiE)
+//ClassImp(TFitParticlePtEtaPhiE)
 
 //----------------
 // Constructor --
