@@ -38,6 +38,8 @@ add_library("lib${MOD}" SHARED ${KinFitter_src})
 target_link_libraries("lib${MOD}" ${ROOT_LIBRARIES} Minuit)
 set_target_properties("lib${MOD}" PROPERTIES OUTPUT_NAME ${MOD})
 
+set(PLUTO 1)
+
 set(GOAT_BASE
    inc/GTree.h
    inc/GTreeTrack.h
@@ -142,6 +144,19 @@ add_executable(pi0-example
    src/pi0_example_main.cc
    )
 target_link_libraries(pi0-example ${LIBS} ${ROOT_LIBRARIES})
+
+add_executable(kinfit-example
+   ${GOAT_BASE}
+   ${GOAT_GHIST}
+   inc/PPhysics.h
+   src/PPhysics.cc
+   inc/KinFitPhysics.h
+   src/KinFitPhysics.cc
+   inc/KinFit.h
+   src/KinFit.cc
+   src/kinfit_example_main.cc
+   )
+target_link_libraries(kinfit-example ${LIBS} ${ROOT_LIBRARIES} libKinFitter)
 
 # install some scripts to the bin directory
 # by creating symlinks
