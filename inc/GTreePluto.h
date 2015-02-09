@@ -3,7 +3,7 @@
 
 
 #include "GTree.h"
-
+#include "PParticle.h"
 #include "TClonesArray.h"
 
 #include <list>
@@ -28,6 +28,8 @@ public:
 
     virtual void                Clear()                 { PlutoMCTrue->Clear(); plutoID=-1; plutoRandomID=1; }
     virtual TClonesArray* 		GetMCTrue()        		{ return PlutoMCTrue; }
+    virtual PParticle*          GetMCTrue(const int idx) const { return dynamic_cast<PParticle*>(PlutoMCTrue->At(idx)); }
+    virtual TLorentzVector      GetTrueP4(const int idx) const { return dynamic_cast<PParticle*>(PlutoMCTrue->At(idx))->Vect4(); }
     virtual Long64_t            GetPlutoID()       const     { return plutoID; }
     virtual Long64_t            GetPlutoRandomID() const     { return plutoRandomID; }
 
