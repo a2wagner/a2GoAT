@@ -437,7 +437,7 @@ TLorentzVector GTreeA2Geant::GetTrueVector(const UInt_t n) const throw(std::out_
 
 template <class T>
 void zero( T& data ) {
-    bzero( data, sizeof(data));
+    memset( data, 0, sizeof(data) );
 }
 
 void GTreeA2Geant::Clear()
