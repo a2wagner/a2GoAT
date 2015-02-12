@@ -57,7 +57,8 @@ TKinFitter::TKinFitter():
   _yaVFit(1, 1),
   _constraints(0),
   _particles(0),
-  _paramMeasured(0)
+  _paramMeasured(0),
+  _tracked_parts(0)
 {
 
   reset();
@@ -97,7 +98,8 @@ TKinFitter::TKinFitter(const TString &name, const TString &title):
   _yaVFit(1, 1),
   _constraints(0),
   _particles(0),
-  _paramMeasured(0)
+  _paramMeasured(0),
+  _tracked_parts(0)
 {
 
   reset();
@@ -145,6 +147,8 @@ void TKinFitter::reset() {
   _constraints.clear();
   _particles.clear();
   _paramMeasured.clear();
+  _tracked_parts.clear();
+  _temp_results = NULL;
 
   // Set to default values
   _maxNbIter = 50;
@@ -180,6 +184,36 @@ void TKinFitter::resetParams() {
 TKinFitter::~TKinFitter() {
 
 }
+
+void TKinFitter::get_intermediate_steps(vector<vector<TLorentzVector>>* tmp_results, vector<TAbsFitParticle*> tracked) {
+  _temp_results = tmp_results;
+  _tracked_parts = tracked;
+}
+
+void TKinFitter::get_intermediate_steps(vector<vector<TLorentzVector>>* tmp_results, initializer_list<TAbsFitParticle*> list) {
+  _temp_results = tmp_results;
+  _tracked_parts.clear();
+  for (auto& p : list)
+    _tracked_parts.push_back(p);
+}
+
+template<typename... Args>
+void TKinFitter::get_intermediate_steps(vector<vector<TLorentzVector>>* tmp_results, Args... args) {
+  _temp_results = tmp_results;
+  track_particle(args...);
+}
+
+void TKinFitter::track_particle(TAbsFitParticle* p) {
+  _tracked_parts.push_back(p);
+}
+
+template<typename... Args>
+void TKinFitter::track_particle(TAbsFitParticle* p, Args... args) {
+  _tracked_parts.push_back(p);
+  track_particle(args...);
+}
+
+//template void TKinFitter::track_particle<TAbsFitParticle...>();
 
 void TKinFitter::countMeasParams() {
   // count number of measured parameters
@@ -581,6 +615,14 @@ Int_t TKinFitter::fit() {
     // Apply calculated corrections to measured and unmeasured particles
     applyDeltaAY();
     _nbIter++;
+
+	// save intermediate steps?
+	if( _temp_results ) {
+		vector<TLorentzVector> iter_step;
+		for (vector<TAbsFitParticle*>::iterator it = _tracked_parts.begin(); it != _tracked_parts.end(); ++it)
+			iter_step.push_back(*(*it)->getCurr4Vec());
+		_temp_results->push_back(iter_step);
+	}
 
     //calculate F and S
     prevF = currF;

@@ -8,6 +8,7 @@ using namespace std;
 #include <vector>
 #include "TMatrixD.h"
 #include "TNamed.h"
+#include "TLorentzVector.h"
 
 class TAbsFitParticle;
 class TAbsFitConstraint;
@@ -74,6 +75,12 @@ public :
   void print();
   void printMatrices();
 
+  // save intermediate fit results for fitted particles
+  void get_intermediate_steps(vector<vector<TLorentzVector>>* tmp_results, vector<TAbsFitParticle*> tracked);
+  void get_intermediate_steps(vector<vector<TLorentzVector>>* tmp_results, initializer_list<TAbsFitParticle*> list);
+  template<class... Args>
+  void get_intermediate_steps(vector<vector<TLorentzVector>>* tmp_results, Args... args);
+
 protected:
 
   Bool_t calcA();
@@ -105,6 +112,14 @@ protected:
   void countMeasParams();
   void countUnmeasParams();
   void resetParams();
+
+  // parse which particles should be tracked during fit
+  // use approach of a recursive defined variadic function for this
+  //template<class TAbsFitParticle>
+  void track_particle(TAbsFitParticle* p);
+  //template<class TAbsFitParticle, class... Args>
+  template<class... Args>
+  void track_particle(TAbsFitParticle* p, Args... args);  // recursive variadic function
 
 private :
 
@@ -149,9 +164,11 @@ private :
   Int_t _nParA;     // Number of unmeasured parameters
   Int_t _nParB;     // Number of measured parameters
 
-  vector<TAbsFitConstraint*> _constraints;    // vector with constraints
-  vector<TAbsFitParticle*>   _particles;      // vector with particles
-  vector<Bool_t>             _paramMeasured;  // holds a list of measured an unmeasured particle parameters
+  vector<TAbsFitConstraint*>      _constraints;    // vector with constraints
+  vector<TAbsFitParticle*>        _particles;      // vector with particles
+  vector<Bool_t>                  _paramMeasured;  // holds a list of measured an unmeasured particle parameters
+  vector<TAbsFitParticle*>        _tracked_parts;  // defines which particles should be tracked during fitting procedure
+  vector<vector<TLorentzVector>>* _temp_results;   // used to store temporary fit results each step if enabled
 
   Int_t _status;   // Status of the last fit;_
   Int_t _nbIter;   // number of iteration performed in the fit
