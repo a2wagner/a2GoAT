@@ -1,0 +1,58 @@
+
+#=======================================================================
+# Global Config file for a GoAT analysis
+#=======================================================================
+
+#-----------------------------------------------------------------------
+# General Setup
+#-----------------------------------------------------------------------
+
+Input-Directory: /home/wagners/MC/
+Output-Directory: /home/wagners/MC/
+#Input-File: Acqu_g4_sim_pi0_gg_01.root
+#TODO: Check how to handle this, doesn't work...
+#Input-Prefix: Acqu
+#Output-Prefix: Goat
+
+Period-Macro:	100000
+
+#-----------------------------------------------------------------------
+# Particle Reconstruction
+#-----------------------------------------------------------------------
+Do-Particle-Reconstruction: 0
+
+Do-Charged-Particle-Reconstruction: 0
+#Cut-dE-E-CB-Proton: 	configfiles/cuts/CB_DeltaE-E_Proton.root Proton
+#Cut-dE-E-CB-Pion: 		configfiles/cuts/CB_DeltaE-E_Pion.root Pion
+Cut-dE-E-TAPS-Pion: 	configfiles/cuts/TAPS_DeltaE-E.root	CutPiplus
+Cut-dE-E-TAPS-Proton: 	configfiles/cuts/TAPS_DeltaE-E.root CutProton
+Cut-dE-E-TAPS-Electron: configfiles/cuts/TAPS_DeltaE-E.root CutElectron
+
+Do-Meson-Reconstruction: 0
+
+
+#-----------------------------------------------------------------------
+# Sorting Preferences
+#-----------------------------------------------------------------------
+# Just turn off a sort completely to ignore a sorting preference
+# Use +, - or = to set counters (ex. 3- will accept 3 or less)
+
+# Sort on number of raw particle tracks (total, CB, and TAPS)
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#		     Total 	CB		TAPS
+#SortRaw-NTracks:     3-		0+		0+
+
+
+# Sort on Trigger conditions (Crystal Ball Energy Sum)
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#SortRaw-CBEnergySum: 	90+
+
+
+# Sort on reconstructed particle properties
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#Sort-NParticles: 	1+
+
+		Type		Number	Theta-min 	Theta-max
+#Sort-Particle:	neutralPions	1=	0		180
+#Sort-Particle:	charged		1= 	0		20
+
