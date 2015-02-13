@@ -26,7 +26,7 @@ T check(ValType v) {
 	} else if (std::find(first, last, v) != last) {
 		return T(v);
 	}
-	throw false;
+	return T(0);
 }
 
 // "enhanced" definition of enum
@@ -43,26 +43,6 @@ enum particle_id {
 	proton = 14
 };
 
-/*template<>
-struct enum_traits<particle_id> {
-	static constexpr bool is_enum = std::is_enum<particle_id>::value;
-	static constexpr bool sorted = true;
-	static const particle_id enumerators[];
-};
-
-constexpr particle_id enum_traits<particle_id>::enumerators[] = {
-	rootino,
-	photon,
-	positron,
-	electron,
-	antimuon,
-	muon,
-	piplus,
-	piminus,
-	proton
-};*/
-
-// better to avoid linker errors if this is defined in a header and included in multiple files
 template<>
 struct enum_traits<particle_id> {
 	static constexpr bool is_enum = std::is_enum<particle_id>::value;
