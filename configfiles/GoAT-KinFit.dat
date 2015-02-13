@@ -12,7 +12,8 @@ CheckCBStability: 1
 
 Input-Directory: /home/wagners/MC/
 Output-Directory: /home/wagners/MC/
-Input-File: GoAT_g4_sim_pi0_gg_01.root
+Input-File: Goat_pi0_gg_merged.root
+#Input-File: GoAT_g4_sim_pi0_gg_01.root
 
 #-----------------------------------------------------------------------
 # Particle Reconstruction
