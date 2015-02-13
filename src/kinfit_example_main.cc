@@ -3,6 +3,10 @@
 #include "KinFitPhysics.h"
 #include <time.h>
 
+//extern template
+//struct enum_traits<particle_id>;
+extern constexpr particle_id enum_traits<particle_id>::enumerators[];
+
 using namespace std;
 
 /**
