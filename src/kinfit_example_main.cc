@@ -6,6 +6,7 @@
 //extern template
 //struct enum_traits<particle_id>;
 extern constexpr particle_id enum_traits<particle_id>::enumerators[];
+extern constexpr particle_id enum_traits<particle_id>::charged[];
 
 using namespace std;
 

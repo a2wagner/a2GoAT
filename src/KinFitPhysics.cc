@@ -135,10 +135,12 @@ void KinFitPhysics::ProcessEvent()
 
 	/* Gather all particle information, depending on which MC trees are available */
 	particle_vector particles;
+	TLorentzVector trueBeam;
 	unsigned int nParticles = 0, nParticlesCB = 0, nParticlesTAPS = 0;
 	if (pluto_tree) {  // in case we have a Pluto tree
 		for (const PParticle* p : pluto->GetFinalState())
 			particles.push_back(particle_t(p->Vect4(), static_cast<particle_id>(p->ID())));
+		trueBeam = pluto->GetMCTrue(0)->Vect4();
 	} else {  // if not, use Geant tree information
 		//TODO: maybe do this directly in the GTreeA2Geant?
 		for (unsigned int i = 0; i < geant->GetNTrueParticles(); i++)
@@ -148,73 +150,33 @@ void KinFitPhysics::ProcessEvent()
 				it = particles.erase(it);
 			else
 				++it;
+		trueBeam = geant->GetBeam();
 	}
+	nParticles = particles.size();
+	TLorentzVector trueTarget = TLorentzVector(0., 0., 0., MASS_PROTON);
 
 	if (dbg) {
 		printf("\nEvent %d:\n", ++count);
 		for (auto& p : particles) {
-			printf("Particle id: %2d, ", p.id);
+			printf("Particle id: %2d (%s), ", p.id, p.is_charged() ? "charged" : "uncharged");
 			p.p4.Print();
 		}
 	}
 
-	nParticles = particles.size();
 	for (particle_t p : particles)
 		if (!p.is_final_state())
-			printf("no final state!\n");
+			printf("no final state!\n");  //TODO: an der Stelle vlt. abbrechen?
 
-/*particle_t a = particle_t();
-particle_t b = particle_t(23.4, static_cast<particle_id>(7));
-particle_t c = particle_t(42., static_cast<particle_id>(14));
-try {
-	if (a.is_final_state())
-		printf("a is a final state!\n");
-} catch (bool e) {
-	printf("%d not in enum!\n", a);
-}
-try {
-	if (b.is_final_state())
-		printf("b is a final state!\n");
-} catch (bool e) {
-	printf("%d not in enum!\n", b);
-}
-try {
-	if (c.is_final_state())
-		printf("c is a final state!\n");
-} catch (bool e) {
-	printf("%d not in enum!\n", c);
-}
-*/
 
-//	const unsigned int trueParticles = geant->GetNTrueParticles();
-//	//TLorentzVector particles[trueParticles];// = {0};
-//	//unsigned int nParticles = 0, nParticlesCB = 0, nParticlesTAPS = 0;
-//	for (unsigned int i = 0; i < trueParticles; i++) {
-//		//if (geant.isFinalState(i)) {
-//			particles[nParticles++] = geant->GetTrueVector(i);
-//			if (geant->GetTrueID(i) == 14) {
-//				nParticlesTAPS++;
-//				printf("TAPS(%d)ID: %d, ", nParticlesTAPS, geant->GetTrueID(i));
-//			} else {
-//				nParticlesCB++;
-//				printf("CB(%d)ID: %d, ", nParticlesCB, geant->GetTrueID(i));
-//			}
-//		//}
-//	}
+	TLorentzVector tmpState(0., 0., 0., 0.);
+	unsigned int nCharged = 0, nNeutral = 0;
+	unsigned int chargedPart[N_FINAL_STATE];
+	unsigned int neutralPart[N_FINAL_STATE];
+	TLorentzVector missProton;
+	// variables to store values only for cuts
+	Double_t mMiss, protExpect;
 
-//	//TLorentzVector trueBeam = pluto.GetMCTrue(0)->Vect4();
-//	TLorentzVector trueBeam = geant->GetBeam();
-//	TLorentzVector trueTarget = TLorentzVector(0., 0., 0., MASS_PROTON);
-
-//	TLorentzVector tmpState(0., 0., 0., 0.);
-//	unsigned int nCharged = 0, nNeutral = 0;
-//	unsigned int chargedPart[N_FINAL_STATE];
-//	unsigned int neutralPart[N_FINAL_STATE];
-//	TLorentzVector missProton;
-//	// variables to store values only for cuts
-//	Double_t mMiss, protExpect;
-
-//	if (nParticles == N_FINAL_STATE) {  // proceed if there are 3 particles in total (2g and proton)
+	if (nParticles == N_FINAL_STATE) {  // proceed if there are 3 particles in total (2g and proton)
 
 //		//nCharged = nNeutral = 0;
 //		for (unsigned int i = 0; i < N_FINAL_STATE; i++) {
@@ -424,7 +386,7 @@ try {
 
 //		//delete temp_results;
 
-//	}
+	}
 
 
 

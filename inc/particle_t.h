@@ -29,6 +29,20 @@ T check(ValType v) {
 	return T(0);
 }
 
+template<typename T, typename ValType>
+T charged(ValType v) {
+	typedef enum_traits<T> traits;
+	const T *first = traits::charged;
+	const T *last = endof(traits::charged);
+	if (traits::sorted) {  // probably premature optimization
+		if (std::binary_search(first, last, v))
+			return T(v);
+	} else if (std::find(first, last, v) != last) {
+		return T(v);
+	}
+	return T(0);
+}
+
 // "enhanced" definition of enum
 enum particle_id {
 	rootino = 0,
@@ -59,6 +73,15 @@ struct enum_traits<particle_id> {
 		neutron,
 		proton
 	};
+	static constexpr particle_id charged[] = {
+		positron,
+		electron,
+		antimuon,
+		muon,
+		piplus,
+		piminus,
+		proton
+	};
 };
 
 //typedef std::pair<TLorentzVector, particle_id> particle_t;
@@ -70,6 +93,10 @@ struct particle_t {
 	bool is_final_state()
 	{
 		return check<particle_id>(id);
+	}
+	bool is_charged()
+	{
+		return charged<particle_id>(id);
 	}
 };
 
