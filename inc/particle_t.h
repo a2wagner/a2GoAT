@@ -3,6 +3,8 @@
 
 #include <algorithm>
 
+#include "TLorentzVector.h"
+
 /* prepare a special enum class where one can check if a value was defined in the enum */
 template <typename T>
 struct enum_traits {
@@ -98,6 +100,10 @@ struct particle_t {
 	{
 		return charged<particle_id>(id);
 	}
+	Double_t M() { return p4.M(); }
+	Double_t E() { return p4.E(); }
+	TVector3 Vect() { return p4.Vect(); }
+	void Print() { p4.Print(); }
 };
 
 #endif  // __PARTICLE_T__
