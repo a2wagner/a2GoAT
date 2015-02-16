@@ -142,8 +142,9 @@ GTreeA2Geant::~GTreeA2Geant()
 
 TLorentzVector GTreeA2Geant::GetBeam() const
 {
-    //                          x         y         z         E
-    return TLorentzVector(fbeam[0], fbeam[1], fbeam[2], fbeam[4]);
+    double x = fbeam[0], y = fbeam[1], z = fbeam[2], t = fbeam[3];
+
+    return TLorentzVector(t*x, t*y, t*z, t);
 }
 
 TVector3 GTreeA2Geant::GetVertex() const
