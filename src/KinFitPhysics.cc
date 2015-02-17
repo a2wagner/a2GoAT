@@ -108,7 +108,7 @@ void KinFitPhysics::ProcessEvent()
 
 
 
-	bool dbg = false;
+	bool dbg = true;
 	static int count = 0;
 	double photon1_pullE, photon1_pullTheta, photon1_pullPhi,
 			photon2_pullE, photon2_pullTheta, photon2_pullPhi,
@@ -217,11 +217,11 @@ void KinFitPhysics::ProcessEvent()
 		TVector3 photon2 = particles[neutral[1]].Vect();
 		TVector3 proton = particles[charged[0]].Vect();
 
-		TRandom3 rand(0);
+		//TRandom3 rand(0);
 		double sigmaPt = .02, sigmaTheta = .05, sigmaPhi = .05;
-		photon1.SetPtThetaPhi(rand.Gaus(photon1.Pt(), sigmaPt), rand.Gaus(photon1.Theta(), sigmaTheta), rand.Gaus(photon1.Phi(), sigmaPhi));
-		photon2.SetPtThetaPhi(rand.Gaus(photon2.Pt(), sigmaPt), rand.Gaus(photon2.Theta(), sigmaTheta), rand.Gaus(photon2.Phi(), sigmaPhi));
-		proton.SetPtThetaPhi(rand.Gaus(proton.Pt(), sigmaPt), rand.Gaus(proton.Theta(), sigmaTheta), rand.Gaus(proton.Phi(), sigmaPhi));
+		//photon1.SetPtThetaPhi(rand.Gaus(photon1.Pt(), sigmaPt), rand.Gaus(photon1.Theta(), sigmaTheta), rand.Gaus(photon1.Phi(), sigmaPhi));
+		//photon2.SetPtThetaPhi(rand.Gaus(photon2.Pt(), sigmaPt), rand.Gaus(photon2.Theta(), sigmaTheta), rand.Gaus(photon2.Phi(), sigmaPhi));
+		//proton.SetPtThetaPhi(rand.Gaus(proton.Pt(), sigmaPt), rand.Gaus(proton.Theta(), sigmaTheta), rand.Gaus(proton.Phi(), sigmaPhi));
 		TMatrixD covPhoton1;
 		TMatrixD covPhoton2;
 		TMatrixD covProton;
@@ -350,23 +350,23 @@ void KinFitPhysics::ProcessEvent()
 		proton_pullPhi = pullsProton(2,0);
 
 		// skip plotting pulls which are not a number
-		if (!isnan((float)photon1_pullE))
+		if (isfinite(photon1_pullE))
 			photon1PullE->Fill(photon1_pullE);
-		if (!isnan((float)photon1_pullTheta))
+		if (isfinite(photon1_pullTheta))
 			photon1PullTheta->Fill(photon1_pullTheta);
-		if (!isnan((float)photon1_pullPhi))
+		if (isfinite(photon1_pullPhi))
 			photon1PullPhi->Fill(photon1_pullPhi);
-		if (!isnan((float)photon2_pullE))
+		if (isfinite(photon2_pullE))
 			photon2PullE->Fill(photon2_pullE);
-		if (!isnan((float)photon2_pullTheta))
+		if (isfinite(photon2_pullTheta))
 			photon2PullTheta->Fill(photon2_pullTheta);
-		if (!isnan((float)photon2_pullPhi))
+		if (isfinite(photon2_pullPhi))
 			photon2PullPhi->Fill(photon2_pullPhi);
-		if (!isnan((float)proton_pullE))
+		if (isfinite(proton_pullE))
 			protonPullE->Fill(proton_pullE);
-		if (!isnan((float)proton_pullTheta))
+		if (isfinite(proton_pullTheta))
 			protonPullTheta->Fill(proton_pullTheta);
-		if (!isnan((float)proton_pullPhi))
+		if (isfinite(proton_pullPhi))
 			protonPullPhi->Fill(proton_pullPhi);
 
 		std::cout << "Fit result: " << std::endl;
