@@ -2,6 +2,7 @@
 #define __PARTICLE_T__
 
 #include <algorithm>
+#include <math.h>
 
 #include "TLorentzVector.h"
 
@@ -91,6 +92,8 @@ struct particle_t {
 	TLorentzVector p4;
 	particle_id id;
 	particle_t() : p4(), id(rootino) {}
+	particle_t(TLorentzVector p4) : p4(p4), id(rootino) {}
+	particle_t(particle_id id) : p4(), id(id) {}
 	particle_t(TLorentzVector p4, particle_id id) : p4(p4), id(id) {}
 	bool is_final_state()
 	{
@@ -100,10 +103,55 @@ struct particle_t {
 	{
 		return charged<particle_id>(id);
 	}
-	Double_t M() { return p4.M(); }
-	Double_t E() { return p4.E(); }
-	TVector3 Vect() { return p4.Vect(); }
+	void transform(double factor)
+	{
+		double pt = p4.Pt()*factor, phi = p4.Phi(), e = p4.E()*factor;
+		p4.SetXYZT(pt*cos(phi), pt*sin(phi), pt*sinh(p4.Eta()), e);
+	}
+	void GeV2MeV(){ transform(1000.); }
+	void MeV2GeV(){ transform(.0001); }
+
+	/* Some frequently used methods from TLorentzVector */
+	Double_t E()     { return p4.E(); }
+	Double_t P()     { return p4.P(); }
+	Double_t Px()    { return p4.Px(); }
+	Double_t Py()    { return p4.Py(); }
+	Double_t Pz()    { return p4.Pz(); }
+	Double_t Pt()    { return p4.Pt(); }
+	Double_t M()     { return p4.M(); }
+	Double_t M2()    { return p4.M2(); }
+	Double_t Theta() { return p4.Theta(); }
+	Double_t Phi()   { return p4.Phi(); }
+	TVector3 Vect()  { return p4.Vect(); }
 	void Print() { p4.Print(); }
+
+	/* Add a few basic operators */
+	particle_t operator + (const particle_t& p) const {
+		return particle_t(p4+p.p4);
+	}
+	particle_t operator + (const TLorentzVector& p) const {
+		return particle_t(p4+p);
+	}
+	particle_t operator += (const particle_t& p) const {
+		return particle_t(p4+p.p4);
+	}
+	particle_t operator += (const TLorentzVector& p) const {
+		return particle_t(p4+p);
+	}
+	particle_t operator - (const particle_t& p) const {
+		return particle_t(p4-p.p4);
+	}
+	particle_t operator - (const TLorentzVector& p) const {
+		return particle_t(p4-p);
+	}
+	particle_t operator -= (const particle_t& p) const {
+		return particle_t(p4-p.p4);
+	}
+	particle_t operator -= (const TLorentzVector& p) const {
+		return particle_t(p4-p);
+	}
+	/* Implicit cast to TLorentzVector for easier usage (like TLorentzVector = particle_t + particle_t */
+	operator TLorentzVector() { return p4; }
 };
 
 #endif  // __PARTICLE_T__
