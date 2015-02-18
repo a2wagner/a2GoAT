@@ -43,6 +43,8 @@ private:
 	TH1* missM;
 	TH1* expectProt;
 
+	TH2* pi0_fit_steps;
+
 	TH1* photon1PullE;
 	TH1* photon1PullTheta;
 	TH1* photon1PullPhi;
@@ -55,6 +57,7 @@ private:
 
 	TH1* chisq_hist;
 	TH1* prob_hist;
+	TH1* pi0_smeared;
 	TH1* pi0_fitted;
 	TH1* nIter;
 	TH1* fitStatus;

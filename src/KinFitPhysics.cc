@@ -22,6 +22,8 @@ KinFitPhysics::KinFitPhysics()
 	missM = new TH1D("missM", "miss_mass", 600, 500, 1100);
 	expectProt = new TH1D("expectProt", "expected_proton", 500, 700, 1200);
 
+	pi0_fit_steps = new TH2D("pi0_fit_steps", "pi0_fit_steps", 200, 100, 200, 50, 0, 49);
+
 	photon1PullE = new TH1D("photon1PullE", "photon1_pullE", 100, -2, 2);
 	photon1PullTheta = new TH1D("photon1PullTheta", "photon1_pullTheta", 100, -2, 2);
 	photon1PullPhi = new TH1D("photon1PullPhi", "photon1_pullPhi", 100, -2, 2);
@@ -34,6 +36,7 @@ KinFitPhysics::KinFitPhysics()
 
 	chisq_hist = new TH1D("chisq", "chi_square", 200, 0, 100);
 	prob_hist = new TH1D("prob", "probability", 200, 0, 1);
+	pi0_smeared = new TH1D("pi0_smeared", "pi0_mass_smeared", 200, 100, 200);
 	pi0_fitted = new TH1D("pi0_fitted", "pi0_mass_fitted", 200, 100, 200);
 	nIter = new TH1I("n_iter", "n_iter", 51, 0, 50);
 	fitStatus = new TH1I("fit_status", "fit_status", 21, -10, 10);
@@ -108,18 +111,19 @@ void KinFitPhysics::ProcessEvent()
 
 
 
-	bool dbg = true;
+	bool dbg = false;
 	static int count = 0;
 	double photon1_pullE, photon1_pullTheta, photon1_pullPhi,
 			photon2_pullE, photon2_pullTheta, photon2_pullPhi,
 			proton_pullE, proton_pullTheta, proton_pullPhi;
-	double chisq, prob, pi0_mass_fitted;
+	double chisq, prob, pi0_mass_smeared, pi0_mass_fitted;
 	int n_iter, fit_status;
 
 
 
 	// first get the MC trees and check if they really exist because you'll still get vectors etc. from non-existent trees!
 	//TODO: FIX THIS!
+	//TODO: Move to Init()
 	bool pluto_tree, geant_tree;
 	GTreeA2Geant* geant = GetGeant();
 	GTreePluto* pluto = GetPluto();
@@ -134,14 +138,17 @@ void KinFitPhysics::ProcessEvent()
 	}
 
 	/* Gather all particle information, depending on which MC trees are available */
+	bool MeV = false;  // use MeV or GeV?
+	//TODO fit converges significantly slower (3 times or even more iteration steps) for MeV ?
 	particle_vector particles;
-	TLorentzVector trueBeam;
+	particle_t trueBeam(photon);
+	//TLorentzVector trueTarget = TLorentzVector(0., 0., 0., MASS_PROTON/1000.);
 	unsigned int nParticles = 0, nParticlesCB = 0, nParticlesTAPS = 0;
-	//if (pluto_tree) {  // in case we have a Pluto tree
-	if (!pluto_tree) {  //TODO: for checks, maybe wrong units, GeV instead of MeV Pluto <--> Geant ?
+	if (pluto_tree) {  // in case we have a Pluto tree
 		for (const PParticle* p : pluto->GetFinalState())
 			particles.push_back(particle_t(p->Vect4(), static_cast<particle_id>(p->ID())));
-		trueBeam = pluto->GetMCTrue(0)->Vect4();
+		//trueBeam = pluto->GetMCTrue(0)->Vect4() - trueTarget;
+		trueBeam.p4 = pluto->GetTrueBeam();
 	} else {  // if not, use Geant tree information
 		//TODO: maybe do this directly in the GTreeA2Geant?
 		for (unsigned int i = 0; i < geant->GetNTrueParticles(); i++)
@@ -151,10 +158,12 @@ void KinFitPhysics::ProcessEvent()
 				it = particles.erase(it);
 			else
 				++it;
-		trueBeam = geant->GetBeam();
+		trueBeam.p4 = geant->GetBeam();
 	}
+	particle_t trueTarget(TLorentzVector(0., 0., 0., MeV ? MASS_PROTON : MASS_PROTON/1000.), proton);
+	if (MeV)
+		trueBeam.GeV2MeV();
 	nParticles = particles.size();
-	TLorentzVector trueTarget = TLorentzVector(0., 0., 0., MASS_PROTON);
 
 	if (dbg) {
 		printf("\nEvent %d:\n", ++count);
@@ -166,7 +175,7 @@ void KinFitPhysics::ProcessEvent()
 
 	for (particle_t p : particles)
 		if (!p.is_final_state())
-			printf("no final state!\n");  //TODO: an der Stelle vlt. abbrechen?
+			printf("no final state!\n");  //TODO: terminate here maybe?
 
 
 	TLorentzVector tmpState(0., 0., 0., 0.);
@@ -181,21 +190,24 @@ void KinFitPhysics::ProcessEvent()
 
 		int i = 0;
 		for (auto& p : particles) {
+			if (MeV)
+				p.GeV2MeV();
 			if (p.is_charged())
 				charged[nCharged++] = i;
 			else {
 				neutral[nNeutral++] = i;
-				tmpState += particles[i].p4;
+				tmpState += particles[i];
 			}
 			i++;
 		}
+
 		/* end event selection when we don't have one charged particle (entry in PID or Veto) and two neutral ones */
 		if (nCharged != 1 && nNeutral != 2)
 			return;
 
 		double protEnergyReconstr = particles[charged[0]].E() - particles[charged[0]].M();
 		double invM_2neutral = tmpState.M();
-		invM_2g->Fill(invM_2neutral);
+		invM_2g->Fill(MeV ? invM_2neutral : invM_2neutral*1000.);
 
 		/* At this point we have one charged and two neutral particles. Start to examine all tagged photons for prompt and random windows. */
 		//for (unsigned int i = 0; i < nBeamPhotons; i++) {
@@ -203,8 +215,8 @@ void KinFitPhysics::ProcessEvent()
 			missProton = trueTarget + trueBeam - tmpState;
 			mMiss = missProton.M();
 			protExpect = missProton.E() - missProton.M();
-			missM->Fill(mMiss);
-			expectProt->Fill(protExpect);
+			missM->Fill(MeV ? mMiss : mMiss*1000.);
+			expectProt->Fill(MeV ? protExpect : protExpect*1000.);
 		//}
 
 		/* prepare kinematic fit */
@@ -217,11 +229,28 @@ void KinFitPhysics::ProcessEvent()
 		TVector3 photon2 = particles[neutral[1]].Vect();
 		TVector3 proton = particles[charged[0]].Vect();
 
-		//TRandom3 rand(0);
-		double sigmaPt = .02, sigmaTheta = .05, sigmaPhi = .05;
-		//photon1.SetPtThetaPhi(rand.Gaus(photon1.Pt(), sigmaPt), rand.Gaus(photon1.Theta(), sigmaTheta), rand.Gaus(photon1.Phi(), sigmaPhi));
-		//photon2.SetPtThetaPhi(rand.Gaus(photon2.Pt(), sigmaPt), rand.Gaus(photon2.Theta(), sigmaTheta), rand.Gaus(photon2.Phi(), sigmaPhi));
-		//proton.SetPtThetaPhi(rand.Gaus(proton.Pt(), sigmaPt), rand.Gaus(proton.Theta(), sigmaTheta), rand.Gaus(proton.Phi(), sigmaPhi));
+		// temp checks
+		/*TLorentzVector balance = particles[neutral[0]].p4 + particles[neutral[1]].p4 + particles[charged[0]].p4 - trueBeam.p4 - trueTarget.p4;
+		printf("Proton: %f, Pi0: %f, BeamE: %f, BeamM: %f\n", particles[charged[0]].M(), (particles[neutral[0]].p4 + particles[neutral[1]].p4).M(), trueBeam.E(), trueBeam.M());
+		printf("Energy-Balance: %f, Momentum: (%f, %f, %f)\n", balance.E(), balance.Px(), balance.Py(), balance.Pz());
+		printf("MissM: %f, invM_2g: %f\n", mMiss, invM_2neutral);
+		printf("Ekin expected Proton: %f, true: %f\n", protExpect, particles[charged[0]].E() - particles[charged[0]].M());
+		printf("ProtE = %f, ProtP = %f\n", particles[charged[0]].E(), particles[charged[0]].p4.P());
+		printf("Beam: "); trueBeam.Print();
+		printf("Photon1: "); particles[neutral[0]].Print();
+		printf("Photon2: "); particles[neutral[1]].Print();
+		printf("Proton: "); particles[charged[0]].Print();
+		printf("MASS_PROTON = %f; MASS_PIZERO = %f\n", MASS_PROTON, MASS_PIZERO);*/
+
+		double sigmaPt, sigmaTheta = .05, sigmaPhi = .05;
+		TRandom3 rand(0);
+		if (MeV)
+			sigmaPt = 20.;
+		else
+			sigmaPt = .02;
+		photon1.SetPtThetaPhi(rand.Gaus(photon1.Pt(), sigmaPt), rand.Gaus(photon1.Theta(), sigmaTheta), rand.Gaus(photon1.Phi(), sigmaPhi));
+		photon2.SetPtThetaPhi(rand.Gaus(photon2.Pt(), sigmaPt), rand.Gaus(photon2.Theta(), sigmaTheta), rand.Gaus(photon2.Phi(), sigmaPhi));
+		proton.SetPtThetaPhi(rand.Gaus(proton.Pt(), sigmaPt), rand.Gaus(proton.Theta(), sigmaTheta), rand.Gaus(proton.Phi(), sigmaPhi));
 		TMatrixD covPhoton1;
 		TMatrixD covPhoton2;
 		TMatrixD covProton;
@@ -232,7 +261,6 @@ void KinFitPhysics::ProcessEvent()
 
 		int rows = 3;  // number of rows equal to number of cols
 		//Double_t errors[3];
-		//Double_t errors[] = {50, .5, .5};
 		Double_t errors[] = {sigmaPt*sigmaPt*1.2, sigmaTheta*sigmaTheta*1.2, sigmaPhi*sigmaPhi*1.2};
 		//Double_t errors[] = {1., .01, .01};
 		int currPart = neutral[0];
@@ -256,7 +284,7 @@ void KinFitPhysics::ProcessEvent()
 
 		TFitParticlePThetaPhi ph1("neutral1", "neutral1", &photon1, 0., &covPhoton1);
 		TFitParticlePThetaPhi ph2("neutral2", "neutral2", &photon2, 0., &covPhoton2);
-		TFitParticlePThetaPhi pr("charged1", "charged1", &proton, MASS_PROTON, &covProton);
+		TFitParticlePThetaPhi pr("charged1", "charged1", &proton, MeV ? MASS_PROTON : MASS_PROTON/1000., &covProton);
 
 		TVector3 beam = trueBeam.Vect();
 		TVector3 target = trueTarget.Vect();
@@ -264,12 +292,14 @@ void KinFitPhysics::ProcessEvent()
 		TMatrixD covTarget;
 		//kinFit.sigmaEThetaPhi(Tagged[0], errors);
 		errors[0] = .01; errors[1] = .0001; errors[2] = .0001;
+		if (MeV)
+			errors[0] = 10.;
 		if (kinFit.fillSquareMatrixDiagonal(&covBeam, errors, rows))
 			fprintf(stderr, "Error filling covariance matrix with uncertainties\n");
 		covTarget.Zero();
 		covTarget.ResizeTo(3, 3);
 		TFitParticlePThetaPhi bm("beam", "beam", &beam, 0., &covBeam);
-		TFitParticlePThetaPhi trgt("target", "target", &target, MASS_PROTON, &covTarget);
+		TFitParticlePThetaPhi trgt("target", "target", &target, MeV ? MASS_PROTON : MASS_PROTON/1000., &covTarget);
 
 		// energy and momentum constraints have to be defined separately for each component. components can be accessed via enum TFitConstraintEp::component
 		TFitConstraintEp energyConservation("energyConstr", "Energy conservation constraint", 0, TFitConstraintEp::E, 0.);
@@ -284,10 +314,10 @@ void KinFitPhysics::ProcessEvent()
 		TFitConstraintEp pzConservation("pzConstr", "Pz conservation constraint", 0, TFitConstraintEp::pZ, 0.);
 		pzConservation.addParticles1(&bm, &trgt);
 		pzConservation.addParticles2(&ph1, &ph2, &pr);
-		TFitConstraintM massConstrProton("massConstr_proton", "mass constraint proton", 0, 0, MASS_PROTON);
+		TFitConstraintM massConstrProton("massConstr_proton", "mass constraint proton", 0, 0, MeV ? MASS_PROTON : MASS_PROTON/1000.);
 		massConstrProton.addParticle1(&pr);
 		// constraint for pi0 mass
-		TFitConstraintM massConstrPi0("massConstr_pi0", "mass constraint pi0", 0, 0, MASS_PIZERO);
+		TFitConstraintM massConstrPi0("massConstr_pi0", "mass constraint pi0", 0, 0, MeV ? MASS_PIZERO : MASS_PIZERO/1000.);
 		massConstrPi0.addParticles1(&ph1, &ph2);
 
 		//TKinFitter fit;
@@ -296,7 +326,7 @@ void KinFitPhysics::ProcessEvent()
 		kinFit.addMeasParticle(&pr);
 		kinFit.setParamUnmeas(&pr, 0);  // proton energy unmeasured
 		kinFit.addMeasParticle(&bm);
-		kinFit.addUnmeasParticle(&trgt);
+		kinFit.addMeasParticle(&trgt);
 
 		//kinFit.addConstraint(&massConstrProton);
 		kinFit.addConstraint(&energyConservation);
@@ -307,7 +337,7 @@ void KinFitPhysics::ProcessEvent()
 
 		// get the intermediate steps from the fitter
 		//vector<TAbsFitParticle> *temp_results = new vector<TAbsFitParticle>;
-        vvP4 temp_results;
+		vvP4 temp_results;
 		/*vector<TAbsFitParticle*> track_particles;
 		track_particles.push_back(&ph1);
 		track_particles.push_back(&ph2);
@@ -318,7 +348,7 @@ void KinFitPhysics::ProcessEvent()
 
 		kinFit.setMaxNbIter(50);  // number of maximal iterations
 		kinFit.setMaxDeltaS(5e-5);  // max Delta chi2
-		kinFit.setMaxF(1e-4);  // max sum of constraints
+		kinFit.setMaxF(MeV ? .1 : 1e-4);  // max sum of constraints
 		// set verbosity level
 		if (dbg)
 			kinFit.setVerbosity(3);
@@ -330,9 +360,18 @@ void KinFitPhysics::ProcessEvent()
 		fitPhoton2 = (*ph2.getCurr4Vec());
 		fitProton = (*pr.getCurr4Vec());
 
-//        for (outer_it step = temp_results.begin(); step != temp_results.end(); ++step)
-//            for (inner_it it = step->begin(); it != step->end(); ++it)
-//                it->Print();
+		/*for (outer_it step = temp_results.begin(); step != temp_results.end(); ++step)
+			for (inner_it it = step->begin(); it != step->end(); ++it)
+				it->Print();*/
+
+		pi0_mass_smeared = MeV ? (*ph1.getIni4Vec() + *ph2.getIni4Vec()).M() : (*ph1.getIni4Vec() + *ph2.getIni4Vec()).M()*1000.;
+		pi0_smeared->Fill(pi0_mass_smeared);
+		if ((fit_status = kinFit.getStatus()) == 0) {
+			int iterStep = 0;
+			pi0_fit_steps->Fill(pi0_mass_smeared, iterStep++);
+			for (outer_it step = temp_results.begin(); step != temp_results.end(); ++step)
+				pi0_fit_steps->Fill(MeV ? (step->at(0) + step->at(1)).M() : (step->at(0) + step->at(1)).M()*1000., iterStep++);
+		}
 
 		// get the pulls from the fit
 		TMatrixD pullsPhoton1 = *(ph1.getPull());
@@ -369,22 +408,22 @@ void KinFitPhysics::ProcessEvent()
 		if (isfinite(proton_pullPhi))
 			protonPullPhi->Fill(proton_pullPhi);
 
-		std::cout << "Fit result: " << std::endl;
+		//std::cout << "Fit result: " << std::endl;
 		//kinFit.print();
 		ndf = kinFit.getNDF();
 		chisq = kinFit.getS();
 		prob = TMath::Prob(chisq, ndf);
 		chisq_hist->Fill(chisq);
 		prob_hist->Fill(prob);
-		std::cout << "\nProbability: " << prob << "\tchi^2: " << chisq << std::endl;
+		//std::cout << "\nProbability: " << prob << "\tchi^2: " << chisq << std::endl;
 		//pi0_mass = (TLorentzVector(photon1, photon1.Pt()) + TLorentzVector(photon2, photon2.Pt())).M();
 		pi0_mass_fitted = (fitPhoton1 + fitPhoton2).M();
-		pi0_fitted->Fill(pi0_mass_fitted);
+		pi0_fitted->Fill(MeV ? pi0_mass_fitted : pi0_mass_fitted*1000.);
 		n_iter = kinFit.getNbIter();
 		nIter->Fill(n_iter);
-		fit_status = kinFit.getStatus();  // Status: -1: "NO FIT PERFORMED", 10: "RUNNING", 0: "CONVERGED", 1: "NOT CONVERGED", -10: "ABORTED"; should only return 0 or 1
+		//fit_status = kinFit.getStatus();  // Status: -1: "NO FIT PERFORMED", 10: "RUNNING", 0: "CONVERGED", 1: "NOT CONVERGED", -10: "ABORTED"; should only return 0 or 1
 		fitStatus->Fill(fit_status);
-
+//if(count++==3)exit(0);
 		//delete temp_results;
 
 	}
@@ -410,6 +449,8 @@ Bool_t KinFitPhysics::Write()
 	GTreeManager::Write(missM);
 	GTreeManager::Write(expectProt);
 
+	GTreeManager::Write(pi0_fit_steps);
+
 	GTreeManager::Write(photon1PullE);
 	GTreeManager::Write(photon1PullTheta);
 	GTreeManager::Write(photon1PullPhi);
@@ -422,6 +463,7 @@ Bool_t KinFitPhysics::Write()
 
 	GTreeManager::Write(chisq_hist);
 	GTreeManager::Write(prob_hist);
+	GTreeManager::Write(pi0_smeared);
 	GTreeManager::Write(pi0_fitted);
 	GTreeManager::Write(nIter);
 	GTreeManager::Write(fitStatus);
