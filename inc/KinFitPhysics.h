@@ -62,6 +62,14 @@ private:
 	TH1* nIter;
 	TH1* fitStatus;
 
+	TH1* photon1P_Dsmeared;
+	TH1* photon2P_Dsmeared;
+	TH1* protonP_Dsmeared;
+	TH1* photon1P_Dfitted;
+	TH1* photon2P_Dfitted;
+	TH1* protonP_Dfitted;
+	TH2* coplanarity;
+
 protected:
 	// some general constants
 	const unsigned int N_FINAL_STATE = 3;

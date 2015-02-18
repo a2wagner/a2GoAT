@@ -22,24 +22,32 @@ KinFitPhysics::KinFitPhysics()
 	missM = new TH1D("missM", "miss_mass", 600, 500, 1100);
 	expectProt = new TH1D("expectProt", "expected_proton", 500, 700, 1200);
 
-	pi0_fit_steps = new TH2D("pi0_fit_steps", "pi0_fit_steps", 200, 100, 200, 50, 0, 49);
+	pi0_fit_steps = new TH2D("pi0_fit_steps", "pi0_fit_steps", 600, 0, 300, 50, 0, 49);
 
-	photon1PullE = new TH1D("photon1PullE", "photon1_pullE", 100, -2, 2);
-	photon1PullTheta = new TH1D("photon1PullTheta", "photon1_pullTheta", 100, -2, 2);
-	photon1PullPhi = new TH1D("photon1PullPhi", "photon1_pullPhi", 100, -2, 2);
-	photon2PullE = new TH1D("photon2PullE", "photon2_pullE", 100, -2, 2);
-	photon2PullTheta = new TH1D("photon2PullTheta", "photon2_pullTheta", 100, -2, 2);
-	photon2PullPhi = new TH1D("photon2PullPhi", "photon2_pullPhi", 100, -2, 2);
-	protonPullE = new TH1D("protonPullE", "proton_pullE", 100, -2, 2);
-	protonPullTheta = new TH1D("protonPullTheta", "proton_pullTheta", 100, -2, 2);
-	protonPullPhi = new TH1D("protonPullPhi", "proton_pullPhi", 100, -2, 2);
+	photon1PullE = new TH1D("photon1PullE", "photon1_pullE", 1000, -5, 5);
+	photon1PullTheta = new TH1D("photon1PullTheta", "photon1_pullTheta", 1000, -5, 5);
+	photon1PullPhi = new TH1D("photon1PullPhi", "photon1_pullPhi", 1000, -5, 5);
+	photon2PullE = new TH1D("photon2PullE", "photon2_pullE", 1000, -5, 5);
+	photon2PullTheta = new TH1D("photon2PullTheta", "photon2_pullTheta", 1000, -5, 5);
+	photon2PullPhi = new TH1D("photon2PullPhi", "photon2_pullPhi", 1000, -5, 5);
+	protonPullE = new TH1D("protonPullE", "proton_pullE", 1000, -5, 5);
+	protonPullTheta = new TH1D("protonPullTheta", "proton_pullTheta", 1000, -5, 5);
+	protonPullPhi = new TH1D("protonPullPhi", "proton_pullPhi", 1000, -5, 5);
 
-	chisq_hist = new TH1D("chisq", "chi_square", 200, 0, 100);
-	prob_hist = new TH1D("prob", "probability", 200, 0, 1);
-	pi0_smeared = new TH1D("pi0_smeared", "pi0_mass_smeared", 200, 100, 200);
-	pi0_fitted = new TH1D("pi0_fitted", "pi0_mass_fitted", 200, 100, 200);
+	chisq_hist = new TH1D("chisq", "chi_square", 1000, 0, 100);
+	prob_hist = new TH1D("prob", "probability", 1000, 0, 1);
+	pi0_smeared = new TH1D("pi0_smeared", "pi0_mass_smeared", 600, 0, 300);
+	pi0_fitted = new TH1D("pi0_fitted", "pi0_mass_fitted", 600, 0, 300);
 	nIter = new TH1I("n_iter", "n_iter", 51, 0, 50);
 	fitStatus = new TH1I("fit_status", "fit_status", 21, -10, 10);
+
+	photon1P_Dsmeared = new TH1D("photon1P_Dsmeared", "photon1P_smeared-true", 2000, -1000, 1000);
+	photon2P_Dsmeared = new TH1D("photon2P_Dsmeared", "photon2P_smeared-true", 2000, -1000, 1000);
+	protonP_Dsmeared = new TH1D("protonP_Dsmeared", "protonP_smeared-true", 2000, -1000, 1000);
+	photon1P_Dfitted = new TH1D("photon1P_Dfitted", "photon1P_fitted-true", 2000, -1000, 1000);
+	photon2P_Dfitted = new TH1D("photon2P_Dfitted", "photon2P_fitted-true", 2000, -1000, 1000);
+	protonP_Dfitted = new TH1D("protonP_Dfitted", "protonP_fitted-true", 2000, -1000, 1000);
+	coplanarity = new TH2D("coplanarity", "coplanarity", 720, 0, 360, 50, 0, 49);
 }
 
 KinFitPhysics::~KinFitPhysics()
@@ -242,15 +250,15 @@ void KinFitPhysics::ProcessEvent()
 		printf("Proton: "); particles[charged[0]].Print();
 		printf("MASS_PROTON = %f; MASS_PIZERO = %f\n", MASS_PROTON, MASS_PIZERO);*/
 
-		double sigmaPt, sigmaTheta = .05, sigmaPhi = .05;
+		double sigmaP, sigmaTheta = .05, sigmaPhi = .05;
 		TRandom3 rand(0);
 		if (MeV)
-			sigmaPt = 20.;
+			sigmaP = 20.;
 		else
-			sigmaPt = .02;
-		photon1.SetPtThetaPhi(rand.Gaus(photon1.Pt(), sigmaPt), rand.Gaus(photon1.Theta(), sigmaTheta), rand.Gaus(photon1.Phi(), sigmaPhi));
-		photon2.SetPtThetaPhi(rand.Gaus(photon2.Pt(), sigmaPt), rand.Gaus(photon2.Theta(), sigmaTheta), rand.Gaus(photon2.Phi(), sigmaPhi));
-		proton.SetPtThetaPhi(rand.Gaus(proton.Pt(), sigmaPt), rand.Gaus(proton.Theta(), sigmaTheta), rand.Gaus(proton.Phi(), sigmaPhi));
+			sigmaP = .02;
+		photon1.SetMagThetaPhi(rand.Gaus(photon1.Mag(), sigmaP), rand.Gaus(photon1.Theta(), sigmaTheta), rand.Gaus(photon1.Phi(), sigmaPhi));
+		photon2.SetMagThetaPhi(rand.Gaus(photon2.Mag(), sigmaP), rand.Gaus(photon2.Theta(), sigmaTheta), rand.Gaus(photon2.Phi(), sigmaPhi));
+		proton.SetMagThetaPhi(rand.Gaus(proton.Mag(), sigmaP), rand.Gaus(proton.Theta(), sigmaTheta), rand.Gaus(proton.Phi(), sigmaPhi));
 		TMatrixD covPhoton1;
 		TMatrixD covPhoton2;
 		TMatrixD covProton;
@@ -261,7 +269,8 @@ void KinFitPhysics::ProcessEvent()
 
 		int rows = 3;  // number of rows equal to number of cols
 		//Double_t errors[3];
-		Double_t errors[] = {sigmaPt*sigmaPt*1.2, sigmaTheta*sigmaTheta*1.2, sigmaPhi*sigmaPhi*1.2};
+		double factor = 1.;//1.2;
+		Double_t errors[] = {sigmaP*sigmaP*factor, sigmaTheta*sigmaTheta*factor, sigmaPhi*sigmaPhi*factor};
 		//Double_t errors[] = {1., .01, .01};
 		int currPart = neutral[0];
 		//kinFit.sigmaEThetaPhi(particles[currPart], errors);
@@ -360,6 +369,13 @@ void KinFitPhysics::ProcessEvent()
 		fitPhoton2 = (*ph2.getCurr4Vec());
 		fitProton = (*pr.getCurr4Vec());
 
+		photon1P_Dsmeared->Fill(((*ph1.getIni4Vec()).P() - particles[neutral[0]].P())*1000.);
+		photon2P_Dsmeared->Fill(((*ph2.getIni4Vec()).P() - particles[neutral[1]].P())*1000.);
+		protonP_Dsmeared->Fill(((*pr.getIni4Vec()).P() - particles[charged[0]].P())*1000.);
+		photon1P_Dfitted->Fill((fitPhoton1.P() - particles[neutral[0]].P())*1000.);
+		photon2P_Dfitted->Fill((fitPhoton2.P() - particles[neutral[1]].P())*1000.);
+		protonP_Dfitted->Fill((fitProton.P() - particles[charged[0]].P())*1000.);
+
 		/*for (outer_it step = temp_results.begin(); step != temp_results.end(); ++step)
 			for (inner_it it = step->begin(); it != step->end(); ++it)
 				it->Print();*/
@@ -368,9 +384,12 @@ void KinFitPhysics::ProcessEvent()
 		pi0_smeared->Fill(pi0_mass_smeared);
 		if ((fit_status = kinFit.getStatus()) == 0) {
 			int iterStep = 0;
+			coplanarity->Fill(abs((*ph1.getIni4Vec() + *ph2.getIni4Vec()).Phi() - (*pr.getIni4Vec()).Phi())*R2D, iterStep);
 			pi0_fit_steps->Fill(pi0_mass_smeared, iterStep++);
-			for (outer_it step = temp_results.begin(); step != temp_results.end(); ++step)
+			for (outer_it step = temp_results.begin(); step != temp_results.end(); ++step) {
+				coplanarity->Fill(abs((step->at(0) + step->at(1)).Phi() - step->at(2).Phi())*R2D, iterStep);
 				pi0_fit_steps->Fill(MeV ? (step->at(0) + step->at(1)).M() : (step->at(0) + step->at(1)).M()*1000., iterStep++);
+			}
 		}
 
 		// get the pulls from the fit
@@ -467,6 +486,14 @@ Bool_t KinFitPhysics::Write()
 	GTreeManager::Write(pi0_fitted);
 	GTreeManager::Write(nIter);
 	GTreeManager::Write(fitStatus);
+
+	GTreeManager::Write(photon1P_Dsmeared);
+	GTreeManager::Write(photon2P_Dsmeared);
+	GTreeManager::Write(protonP_Dsmeared);
+	GTreeManager::Write(photon1P_Dfitted);
+	GTreeManager::Write(photon2P_Dfitted);
+	GTreeManager::Write(protonP_Dfitted);
+	GTreeManager::Write(coplanarity);
 
 	// Write all GH1's easily
 	GTreeManager::Write();
