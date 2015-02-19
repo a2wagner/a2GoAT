@@ -23,6 +23,7 @@ KinFitPhysics::KinFitPhysics()
 	expectProt = new TH1D("expectProt", "expected_proton", 500, 700, 1200);
 
 	pi0_fit_steps = new TH2D("pi0_fit_steps", "pi0_fit_steps", 600, 0, 300, 50, 0, 49);
+	coplanarity = new TH2D("coplanarity", "coplanarity", 720, 0, 360, 50, 0, 49);
 
 	photon1PullE = new TH1D("photon1PullE", "photon1_pullE", 1000, -5, 5);
 	photon1PullTheta = new TH1D("photon1PullTheta", "photon1_pullTheta", 1000, -5, 5);
@@ -38,6 +39,8 @@ KinFitPhysics::KinFitPhysics()
 	prob_hist = new TH1D("prob", "probability", 1000, 0, 1);
 	pi0_smeared = new TH1D("pi0_smeared", "pi0_mass_smeared", 600, 0, 300);
 	pi0_fitted = new TH1D("pi0_fitted", "pi0_mass_fitted", 600, 0, 300);
+	copl_smeared = new TH1D("copl_smeared", "coplanarity_smeared", 720, 0, 360);
+	copl_fitted = new TH1D("copl_fitted", "coplanarity_fitted", 720, 0, 360);
 	nIter = new TH1I("n_iter", "n_iter", 51, 0, 50);
 	fitStatus = new TH1I("fit_status", "fit_status", 21, -10, 10);
 
@@ -47,7 +50,6 @@ KinFitPhysics::KinFitPhysics()
 	photon1P_Dfitted = new TH1D("photon1P_Dfitted", "photon1P_fitted-true", 2000, -1000, 1000);
 	photon2P_Dfitted = new TH1D("photon2P_Dfitted", "photon2P_fitted-true", 2000, -1000, 1000);
 	protonP_Dfitted = new TH1D("protonP_Dfitted", "protonP_fitted-true", 2000, -1000, 1000);
-	coplanarity = new TH2D("coplanarity", "coplanarity", 720, 0, 360, 50, 0, 49);
 }
 
 KinFitPhysics::~KinFitPhysics()
@@ -124,7 +126,8 @@ void KinFitPhysics::ProcessEvent()
 	double photon1_pullE, photon1_pullTheta, photon1_pullPhi,
 			photon2_pullE, photon2_pullTheta, photon2_pullPhi,
 			proton_pullE, proton_pullTheta, proton_pullPhi;
-	double chisq, prob, pi0_mass_smeared, pi0_mass_fitted;
+	double chisq, prob, pi0_mass_smeared, pi0_mass_fitted,
+			coplanarity_smeared, coplanarity_fitted;
 	int n_iter, fit_status;
 
 
@@ -333,7 +336,7 @@ void KinFitPhysics::ProcessEvent()
 		kinFit.addMeasParticle(&ph1);
 		kinFit.addMeasParticle(&ph2);
 		kinFit.addMeasParticle(&pr);
-		kinFit.setParamUnmeas(&pr, 0);  // proton energy unmeasured
+		//kinFit.setParamUnmeas(&pr, 0);  // proton energy unmeasured
 		kinFit.addMeasParticle(&bm);
 		kinFit.addMeasParticle(&trgt);
 
@@ -382,9 +385,11 @@ void KinFitPhysics::ProcessEvent()
 
 		pi0_mass_smeared = MeV ? (*ph1.getIni4Vec() + *ph2.getIni4Vec()).M() : (*ph1.getIni4Vec() + *ph2.getIni4Vec()).M()*1000.;
 		pi0_smeared->Fill(pi0_mass_smeared);
+		coplanarity_smeared = abs((*ph1.getIni4Vec() + *ph2.getIni4Vec()).Phi() - (*pr.getIni4Vec()).Phi())*R2D;
+		copl_smeared->Fill(coplanarity_smeared);
 		if ((fit_status = kinFit.getStatus()) == 0) {
 			int iterStep = 0;
-			coplanarity->Fill(abs((*ph1.getIni4Vec() + *ph2.getIni4Vec()).Phi() - (*pr.getIni4Vec()).Phi())*R2D, iterStep);
+			coplanarity->Fill(coplanarity_smeared, iterStep);
 			pi0_fit_steps->Fill(pi0_mass_smeared, iterStep++);
 			for (outer_it step = temp_results.begin(); step != temp_results.end(); ++step) {
 				coplanarity->Fill(abs((step->at(0) + step->at(1)).Phi() - step->at(2).Phi())*R2D, iterStep);
@@ -438,6 +443,8 @@ void KinFitPhysics::ProcessEvent()
 		//pi0_mass = (TLorentzVector(photon1, photon1.Pt()) + TLorentzVector(photon2, photon2.Pt())).M();
 		pi0_mass_fitted = (fitPhoton1 + fitPhoton2).M();
 		pi0_fitted->Fill(MeV ? pi0_mass_fitted : pi0_mass_fitted*1000.);
+		coplanarity_fitted = abs((fitPhoton1 + fitPhoton2).Phi() - fitProton.Phi())*R2D;
+		copl_fitted->Fill(coplanarity_fitted);
 		n_iter = kinFit.getNbIter();
 		nIter->Fill(n_iter);
 		//fit_status = kinFit.getStatus();  // Status: -1: "NO FIT PERFORMED", 10: "RUNNING", 0: "CONVERGED", 1: "NOT CONVERGED", -10: "ABORTED"; should only return 0 or 1
@@ -469,6 +476,7 @@ Bool_t KinFitPhysics::Write()
 	GTreeManager::Write(expectProt);
 
 	GTreeManager::Write(pi0_fit_steps);
+	GTreeManager::Write(coplanarity);
 
 	GTreeManager::Write(photon1PullE);
 	GTreeManager::Write(photon1PullTheta);
@@ -484,6 +492,8 @@ Bool_t KinFitPhysics::Write()
 	GTreeManager::Write(prob_hist);
 	GTreeManager::Write(pi0_smeared);
 	GTreeManager::Write(pi0_fitted);
+	GTreeManager::Write(copl_smeared);
+	GTreeManager::Write(copl_fitted);
 	GTreeManager::Write(nIter);
 	GTreeManager::Write(fitStatus);
 
@@ -493,7 +503,6 @@ Bool_t KinFitPhysics::Write()
 	GTreeManager::Write(photon1P_Dfitted);
 	GTreeManager::Write(photon2P_Dfitted);
 	GTreeManager::Write(protonP_Dfitted);
-	GTreeManager::Write(coplanarity);
 
 	// Write all GH1's easily
 	GTreeManager::Write();

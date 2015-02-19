@@ -44,6 +44,7 @@ private:
 	TH1* expectProt;
 
 	TH2* pi0_fit_steps;
+	TH2* coplanarity;
 
 	TH1* photon1PullE;
 	TH1* photon1PullTheta;
@@ -59,6 +60,8 @@ private:
 	TH1* prob_hist;
 	TH1* pi0_smeared;
 	TH1* pi0_fitted;
+	TH1* copl_smeared;
+	TH1* copl_fitted;
 	TH1* nIter;
 	TH1* fitStatus;
 
@@ -68,7 +71,6 @@ private:
 	TH1* photon1P_Dfitted;
 	TH1* photon2P_Dfitted;
 	TH1* protonP_Dfitted;
-	TH2* coplanarity;
 
 protected:
 	// some general constants
