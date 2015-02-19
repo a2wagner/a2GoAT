@@ -253,37 +253,67 @@ void KinFitPhysics::ProcessEvent()
 		printf("Proton: "); particles[charged[0]].Print();
 		printf("MASS_PROTON = %f; MASS_PIZERO = %f\n", MASS_PROTON, MASS_PIZERO);*/
 
-		double sigmaP, sigmaTheta = .05, sigmaPhi = .05;
-		TRandom3 rand(0);
-		if (MeV)
-			sigmaP = 20.;
-		else
-			sigmaP = .02;
-		photon1.SetMagThetaPhi(rand.Gaus(photon1.Mag(), sigmaP), rand.Gaus(photon1.Theta(), sigmaTheta), rand.Gaus(photon1.Phi(), sigmaPhi));
-		photon2.SetMagThetaPhi(rand.Gaus(photon2.Mag(), sigmaP), rand.Gaus(photon2.Theta(), sigmaTheta), rand.Gaus(photon2.Phi(), sigmaPhi));
-		proton.SetMagThetaPhi(rand.Gaus(proton.Mag(), sigmaP), rand.Gaus(proton.Theta(), sigmaTheta), rand.Gaus(proton.Phi(), sigmaPhi));
-		TMatrixD covPhoton1;
-		TMatrixD covPhoton2;
-		TMatrixD covProton;
-
 		TLorentzVector fitPhoton1;
 		TLorentzVector fitPhoton2;
 		TLorentzVector fitProton;
 
-		int rows = 3;  // number of rows equal to number of cols
-		//Double_t errors[3];
-		double factor = 1.;//1.2;
-		Double_t errors[] = {sigmaP*sigmaP*factor, sigmaTheta*sigmaTheta*factor, sigmaPhi*sigmaPhi*factor};
-		//Double_t errors[] = {1., .01, .01};
+		/**
+		 * Use absolute or relative smearing?
+		 * For absolute smearing use the sigmaX values defined above and comment the ones for each particle
+		 * Relative smearing is calculated for each particle using the following data:
+		 *   CB: sigma_theta = 2.5°; sigma_phi = sigma_theta/sin(theta); sigma_E = E^.36*.02*E
+		 *   TAPS: sigma_theta/phi = 1°; sigma_E = (.018+.008*sqrt(E))*E
+		 */
+		TMatrixD covPhoton1;
+		TMatrixD covPhoton2;
+		TMatrixD covProton;
+
+		TRandom3 rand(0);
+		unsigned int nPar = 3;
+		double sigmaP, sigmaTheta, sigmaPhi;
+		int rows = nPar;  // number of rows equal to number of cols
+		double errors[nPar];
+		std::initializer_list<double> e;  // to easily copy values to an array
+		double factor = 1.;//1.2;  // factor to increase/decrease sigma^2 values used for kinematic fitting
+		// absolute smearing
+		/*sigmaTheta = .05, sigmaPhi = .05;
+		if (MeV)
+			sigmaP = 20.;
+		else
+			sigmaP = .02;
+		Double_t errors[] = {sigmaP*sigmaP*factor, sigmaTheta*sigmaTheta*factor, sigmaPhi*sigmaPhi*factor};*/
+		// relative smearing; assume sigmaP ~ sigmaE
+		/* 1st photon */
 		int currPart = neutral[0];
+		sigmaTheta = sigma_theta(&particles[currPart].p4);
+		sigmaPhi = sigma_phi(&particles[currPart].p4);
+		sigmaP = sigma_E(&particles[currPart].p4);
+		photon1.SetMagThetaPhi(rand.Gaus(photon1.Mag(), sigmaP), rand.Gaus(photon1.Theta(), sigmaTheta), rand.Gaus(photon1.Phi(), sigmaPhi));
+		e = {sigmaP*sigmaP*factor, sigmaTheta*sigmaTheta*factor, sigmaPhi*sigmaPhi*factor};
+		std::copy(e.begin(), e.end(), errors);
+		//Double_t errors[] = {1., .01, .01};
 		//kinFit.sigmaEThetaPhi(particles[currPart], errors);
 		if (kinFit.fillSquareMatrixDiagonal(&covPhoton1, errors, rows))
 			fprintf(stderr, "Error filling covariance matrix with uncertainties\n");
+		/* 2nd photon */
 		currPart = neutral[1];
+		sigmaTheta = sigma_theta(&particles[currPart].p4);
+		sigmaPhi = sigma_phi(&particles[currPart].p4);
+		sigmaP = sigma_E(&particles[currPart].p4);
+		photon2.SetMagThetaPhi(rand.Gaus(photon2.Mag(), sigmaP), rand.Gaus(photon2.Theta(), sigmaTheta), rand.Gaus(photon2.Phi(), sigmaPhi));
+		e = {sigmaP*sigmaP*factor, sigmaTheta*sigmaTheta*factor, sigmaPhi*sigmaPhi*factor};
+		std::copy(e.begin(), e.end(), errors);
 		//kinFit.sigmaEThetaPhi(particles[currPart], errors);
 		if (kinFit.fillSquareMatrixDiagonal(&covPhoton2, errors, rows))
 			fprintf(stderr, "Error filling covariance matrix with uncertainties\n");
+		/* proton */
 		currPart = charged[0];
+		sigmaTheta = sigma_theta(&particles[currPart].p4);
+		sigmaPhi = sigma_phi(&particles[currPart].p4);
+		sigmaP = sigma_E(&particles[currPart].p4);
+		proton.SetMagThetaPhi(rand.Gaus(proton.Mag(), sigmaP), rand.Gaus(proton.Theta(), sigmaTheta), rand.Gaus(proton.Phi(), sigmaPhi));
+//		e = {sigmaP*sigmaP*factor, sigmaTheta*sigmaTheta*factor, sigmaPhi*sigmaPhi*factor};
+//		std::copy(e.begin(), e.end(), errors);
 		//kinFit.sigmaEThetaPhi(particles[currPart], errors);
 		if (kinFit.fillSquareMatrixDiagonal(&covProton, errors, rows))
 			fprintf(stderr, "Error filling covariance matrix with uncertainties\n");
@@ -336,7 +366,7 @@ void KinFitPhysics::ProcessEvent()
 		kinFit.addMeasParticle(&ph1);
 		kinFit.addMeasParticle(&ph2);
 		kinFit.addMeasParticle(&pr);
-		//kinFit.setParamUnmeas(&pr, 0);  // proton energy unmeasured
+		kinFit.setParamUnmeas(&pr, 0);  // proton energy unmeasured
 		kinFit.addMeasParticle(&bm);
 		kinFit.addMeasParticle(&trgt);
 
@@ -506,4 +536,29 @@ Bool_t KinFitPhysics::Write()
 
 	// Write all GH1's easily
 	GTreeManager::Write();
+}
+
+double KinFitPhysics::sigma_E(const TLorentzVector* const p)
+{
+	double E = p->E() - p->M();
+	if (p->Theta() < .349)  // TAPS
+		return (.018 + .008*sqrt(E))*E;
+	else  // CB
+		return pow(E, .36)*.02*E;
+}
+
+double KinFitPhysics::sigma_theta(const TLorentzVector* const p)
+{
+	if (p->Theta() < .349)  // TAPS
+		return .017;
+	else  // CB
+		return .044;
+}
+
+double KinFitPhysics::sigma_phi(const TLorentzVector* const p)
+{
+	if (p->Theta() < .349)  // TAPS
+		return .017;
+	else  // CB
+		return .044/sin(p->Theta());
 }

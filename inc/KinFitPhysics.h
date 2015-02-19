@@ -85,6 +85,11 @@ protected:
 	// Class used for kinematic fitting
 	KinFit kinFit;
 
+	// methods to get relative errors
+	double sigma_E(const TLorentzVector* const p);
+	double sigma_theta(const TLorentzVector* const p);
+	double sigma_phi(const TLorentzVector* const p);
+
 	virtual Bool_t Start();
 	virtual void ProcessEvent();
 	virtual void ProcessScalerRead();
