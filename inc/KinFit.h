@@ -23,6 +23,12 @@ public:
 	KinFit();
 	virtual ~KinFit();
 
+	template<typename T>
+	inline void fill_array(T* t, std::initializer_list<T> il)
+	{
+		std::copy(il.begin(), il.end(), t);
+	}
+
 };
 
 #endif  // __KinFit_h__
