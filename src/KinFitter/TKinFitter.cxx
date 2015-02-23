@@ -630,19 +630,6 @@ Int_t TKinFitter::fit() {
     prevS = currS;
     currS = getS();
 
-	//double s = getNewS();
-//	double lf = 0.;
-//	int i = 0;
-//	for (auto& f : _constraints)
-//		lf += f->getCurrentValue() * _lambda(i++,0);
-//	lf *= 2;
-//	double l = currS + lf;
-//	if (_nbIter == 1) {
-//		_V.Print();
-//		printf("+++++\n Iteration Step: %d\n Current chi2: %f\n Current F: %f\n+++++\n", _nbIter-1, prevS, prevF);
-//	}
-//	printf("+++++\n Iteration Step: %d\n Current chi2: %f\n Current F: %f\n Likelihood: %f\n+++++\n", _nbIter, currS, currF, l);
-
     if( TMath::IsNaN(currF) ) {
       if(_verbosity>=2) cout << "The current value of F is NaN. Fit will be aborted." << endl;
       _status = -10;
@@ -1422,27 +1409,6 @@ Double_t TKinFitter::getS() {
   if ( _nbIter > 0 ) {
     TMatrixD deltaYTVinv(_deltaY, TMatrixD::kTransposeMult, _Vinv);
     TMatrixD S2(deltaYTVinv, TMatrixD::kMult, _deltaY);
-    S = S2(0,0);
-  }
-
-  return S;
-
-}
-
-Double_t TKinFitter::getNewS() {
-
-  std::vector<double> v;
-  for (auto& y : _particles) {
-    const double* e = y->getParIni()->GetMatrixArray();
-    const double* p = e;
-    for (int i = 0; i < y->getParIni()->GetNrows(); i++)
-      v.push_back(*p++);
-  }
-  TMatrixD Y(_nParB, 1, &v[0]);
-  Double_t S = 0.;
-  if ( _nbIter > 0 ) {
-    TMatrixD deltaYTVinv(Y, TMatrixD::kTransposeMult, _Vinv);
-    TMatrixD S2(deltaYTVinv, TMatrixD::kMult, Y);
     S = S2(0,0);
   }
 
