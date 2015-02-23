@@ -46,6 +46,10 @@ private:
 	TH2* pi0_fit_steps;
 	TH2* coplanarity;
 
+	TH2* missM_pi0_vs_pTheta;
+	TH2* invM_gg_vs_beamE;
+	TH2* p_kinE_vs_pTheta_true;
+
 	TH1* photon1PullE;
 	TH1* photon1PullTheta;
 	TH1* photon1PullPhi;
@@ -62,7 +66,8 @@ private:
 	TH1* pi0_fitted;
 	TH1* copl_smeared;
 	TH1* copl_fitted;
-	TH1* nIter;
+	TH1* nIter_converged;
+	TH1* nIter_all;
 	TH1* fitStatus;
 
 	TH1* photon1P_Dsmeared;
