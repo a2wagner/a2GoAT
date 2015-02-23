@@ -7,6 +7,8 @@
 #include "TClonesArray.h"
 
 #include <list>
+#include <algorithm>
+#include <exception>
 
 class PParticle;
 
@@ -17,7 +19,15 @@ private:
     Long64_t        plutoID;
     Long64_t        plutoRandomID;
 
-   protected:
+    class no_tree_exception : public std::exception
+    {
+        virtual const char* what() const throw()
+        {
+            return "No Pluto Tree in current file!";
+        }
+    } noTree;
+
+protected:
     virtual void    SetBranchAdresses();
     virtual void    SetBranches();
 
@@ -28,9 +38,10 @@ public:
 
     virtual void                Clear()                 { PlutoMCTrue->Clear(); plutoID=-1; plutoRandomID=1; }
     virtual TClonesArray* 		GetMCTrue()        		{ return PlutoMCTrue; }
-    virtual PParticle*          GetMCTrue(const int idx) const;
-    virtual TLorentzVector      GetTrueP4(const int idx) const;
+    virtual PParticle*          GetMCTrue(const int idx) const throw(std::exception);
+    virtual TLorentzVector      GetTrueP4(const int idx) const throw(std::exception);
     virtual TLorentzVector      GetTrueBeam() const;
+    virtual TLorentzVector      GetTrueBeam(const TLorentzVector, const int beamID) const;
     virtual Long64_t            GetPlutoID()       const     { return plutoID; }
     virtual Long64_t            GetPlutoRandomID() const     { return plutoRandomID; }
 
