@@ -63,6 +63,7 @@ public :
   void setCovMatrix( TMatrixD &V );                         // Set covariance matrix of measured parameters
   const TMatrixD* getCovMatrixFit() { return &_yaVFit; }    // Covariance matrix of the fit
   Double_t getS();
+  Double_t getNewS();
   Double_t getF();
   void setVerbosity( Int_t verbosity = 1 ); 
   Int_t getVerbosity( ) { return _verbosity; }
