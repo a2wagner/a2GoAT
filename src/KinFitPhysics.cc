@@ -1,6 +1,6 @@
 #include "KinFitPhysics.h"
 
-KinFitPhysics::KinFitPhysics()
+KinFitPhysics::KinFitPhysics() : MC(false), pluto(nullptr), geant(nullptr)
 {
 	time 	= new GH1("time", 	"time", 	1400, -700, 700);
 	time_cut 	= new GH1("time_cut", 	"time_cut", 	1400, -700, 700);
@@ -90,18 +90,26 @@ Bool_t KinFitPhysics::Start()
 	SetAsPhysicsFile();
 
 
-	/* first get the MC trees and check if they really exist because you'll still get vectors etc. from non-existent trees! */
-	//TODO: FIX THIS?!
-	geant = GetGeant();
-	pluto = GetPluto();
-	if(!(geant_tree = geant->IsOpenForInput()))
-		cout << "No Geant Tree in the current file!" << endl;
-	if(!(pluto_tree = pluto->IsOpenForInput()))
-		cout << "No Pluto Tree in the current file!" << endl;
+	/* check if the file contains MC data */
+	if (!GetScalers()->IsOpenForInput())
+		MC = true;
+	else
+		MC = false;
 
-	if (!pluto_tree && !geant_tree) {
-		cout << "No MC trees found in the current file, don't expect any reasonable results if you're proceeding!" << endl;
-		exit(EXIT_FAILURE);
+	if (MC) {
+		/* get the MC trees and check if they really exist because you'll still get vectors etc. from non-existent trees! */
+		//TODO: FIX THIS?!
+		geant = GetGeant();
+		pluto = GetPluto();
+		if(!(geant_tree = geant->IsOpenForInput()))
+			cout << "No Geant Tree in the current file!" << endl;
+		if(!(pluto_tree = pluto->IsOpenForInput()))
+			cout << "No Pluto Tree in the current file!" << endl;
+
+		if (!pluto_tree && !geant_tree) {
+			cout << "No MC trees found in the current file, don't expect any reasonable results if you're proceeding!" << endl;
+			exit(EXIT_FAILURE);
+		}
 	}
 
 
@@ -159,7 +167,10 @@ void KinFitPhysics::ProcessEvent()
 	nParticles = 0, nParticlesCB = 0, nParticlesTAPS = 0;
 	particle_vector particles;
 	particle_t trueBeam(photon);
-	GetTrueParticles(&particles, &trueBeam);
+	if (MC)
+		GetTrueParticles(&particles, &trueBeam);
+	else
+		GetParticles();
 	particle_t trueTarget(TLorentzVector(0., 0., 0., MeV ? MASS_PROTON : MASS_PROTON/1000.), proton);
 	if (MeV)
 		trueBeam.GeV2MeV();

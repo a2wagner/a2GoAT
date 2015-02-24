@@ -46,6 +46,8 @@ private:
 
 	TH1* TaggerAccScal;
 
+	// used to store if the current file contains MC data
+	bool MC;
 	// manage MC trees
 	bool pluto_tree, geant_tree;
 	GTreeA2Geant* geant;
