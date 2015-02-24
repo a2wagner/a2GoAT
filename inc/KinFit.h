@@ -18,8 +18,9 @@ private:
 protected:
 
 public:
-	int fillMatrixDiagonal(TMatrixD* m, Double_t* e, int rows, int cols);
-	int fillSquareMatrixDiagonal(TMatrixD* m, Double_t* e, int rows);
+	int fillMatrixDiagonal(TMatrixD* m, Double_t* e, const int rows, const int cols);
+	int fillSquareMatrixDiagonal(TMatrixD* m, Double_t* e, const int rows);
+	double getProbability();
 	KinFit();
 	virtual ~KinFit();
 

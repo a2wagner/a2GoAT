@@ -14,7 +14,7 @@ KinFit::~KinFit()
 {
 }
 
-int KinFit::fillMatrixDiagonal(TMatrixD* m, Double_t* e, int rows, int cols)
+int KinFit::fillMatrixDiagonal(TMatrixD* m, Double_t* e, const int rows, const int cols)
 {
 	if (!m->IsValid()) {
 		fprintf(stderr, "Error: Matrix is not valid!\n");
@@ -35,8 +35,13 @@ int KinFit::fillMatrixDiagonal(TMatrixD* m, Double_t* e, int rows, int cols)
 	return 0;
 }
 
-int KinFit::fillSquareMatrixDiagonal(TMatrixD* m, Double_t* e, int rows)
+int KinFit::fillSquareMatrixDiagonal(TMatrixD* m, Double_t* e, const int rows)
 {
 	return fillMatrixDiagonal(m, e, rows, rows);
+}
+
+double KinFit::getProbability()
+{
+	return TMath::Prob(getS(), getNDF());
 }
 
