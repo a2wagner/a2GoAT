@@ -5,6 +5,7 @@
 #include <fstream>
 #include <cstdio>
 #include <string>
+#include <exception>
 
 #include "GTreeManager.h"
 #include "GTreePluto.h"
@@ -24,6 +25,14 @@ private:
 	typedef std::vector<particle_t> particle_vector;
 	typedef particle_vector::iterator particle_it;
 
+	class no_final_state_exception : public std::exception
+	{
+		virtual const char* what() const throw()
+		{
+			return "No final state particle! Something went wrong...";
+		}
+	} noFS;
+
 	GH1* time;
 	GH1* time_cut;
 	GH1* time_2g;
@@ -37,6 +46,14 @@ private:
 
 	TH1* TaggerAccScal;
 
+	// manage MC trees
+	bool pluto_tree, geant_tree;
+	GTreeA2Geant* geant;
+	GTreePluto* pluto;
+
+	// store infos of collected particles
+	unsigned int nParticles, nParticlesCB, nParticlesTAPS;
+
 	// fit related stuff
 	TH1* n_particles;
 	TH1* invM_2g;
@@ -49,6 +66,7 @@ private:
 	TH2* missM_pi0_vs_pTheta;
 	TH2* invM_gg_vs_beamE;
 	TH2* p_kinE_vs_pTheta_true;
+	TH2* invM_gg_smeared_vs_invM_gg_fit;
 
 	TH1* photon1PullE;
 	TH1* photon1PullTheta;
@@ -87,13 +105,17 @@ protected:
 	const double R2D = 180./3.14159265359;
 	const double MAX_DOUBLE = 0x1.FFFFFFFFFFFFFp1023;
 
-	// Class used for kinematic fitting
+	// class used for kinematic fitting
 	KinFit kinFit;
 
 	// methods to get relative errors
 	double sigma_E(const TLorentzVector* const p);
 	double sigma_theta(const TLorentzVector* const p);
 	double sigma_phi(const TLorentzVector* const p);
+
+	// collect particles
+	void GetParticles();
+	void GetTrueParticles(particle_vector* particles, particle_t* beam);
 
 	virtual Bool_t Start();
 	virtual void ProcessEvent();

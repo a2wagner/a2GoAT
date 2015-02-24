@@ -28,6 +28,7 @@ KinFitPhysics::KinFitPhysics()
 	missM_pi0_vs_pTheta = new TH2D("missM_pi0_vs_pTheta", "missM_pi0_vs_pTheta", 600, 0, 300, 240, 0, 120);
 	invM_gg_vs_beamE = new TH2D("invM_gg_vs_beamE", "invM_gg_vs_beamE", 600, 0, 300, 360, 1440, 1620);
 	p_kinE_vs_pTheta_true = new TH2D("p_kinE_vs_pTheta_true", "p_kinE_vs_pTheta_true", 24000, 0, 1200, 240, 0, 120);
+	invM_gg_smeared_vs_invM_gg_fit = new TH2D("invM_gg_smeared_vs_invM_gg_fit", "invM_gg_smeared_vs_invM_gg_fit", 600, 0, 300, 600, 0, 300);
 
 	photon1PullE = new TH1D("photon1PullE", "photon1_pullE", 1000, -5, 5);
 	photon1PullTheta = new TH1D("photon1PullTheta", "photon1_pullTheta", 1000, -5, 5);
@@ -73,6 +74,7 @@ Bool_t KinFitPhysics::Init(const char* configfile)
 	if(!InitTaggerScalers()) return kFALSE;
 	cout << "--------------------------------------------------" << endl;
 
+	/* Initialise class for kinematic fitting */
 	kinFit = KinFit();
 
 	return kTRUE;
@@ -86,6 +88,22 @@ Bool_t KinFitPhysics::Start()
 		return kFALSE;
 	}
 	SetAsPhysicsFile();
+
+
+	/* first get the MC trees and check if they really exist because you'll still get vectors etc. from non-existent trees! */
+	//TODO: FIX THIS?!
+	geant = GetGeant();
+	pluto = GetPluto();
+	if(!(geant_tree = geant->IsOpenForInput()))
+		cout << "No Geant Tree in the current file!" << endl;
+	if(!(pluto_tree = pluto->IsOpenForInput()))
+		cout << "No Pluto Tree in the current file!" << endl;
+
+	if (!pluto_tree && !geant_tree) {
+		cout << "No MC trees found in the current file, don't expect any reasonable results if you're proceeding!" << endl;
+		exit(EXIT_FAILURE);
+	}
+
 
 	TraverseValidEvents();
 
@@ -135,45 +153,13 @@ void KinFitPhysics::ProcessEvent()
 	int n_iter, fit_status;
 
 
-	// first get the MC trees and check if they really exist because you'll still get vectors etc. from non-existent trees!
-	//TODO: FIX THIS!
-	//TODO: Move to Init()
-	bool pluto_tree, geant_tree;
-	GTreeA2Geant* geant = GetGeant();
-	GTreePluto* pluto = GetPluto();
-	if(!(geant_tree = geant->IsOpenForInput()))
-		cout << "No Geant Tree in the current file!" << endl;
-	if(!(pluto_tree = pluto->IsOpenForInput()))
-		cout << "No Pluto Tree in the current file!" << endl;
-
-	if (!pluto_tree && !geant_tree) {
-		cout << "No MC trees found in the current file, don't expect any reasonable results if you're proceeding!" << endl;
-		exit(EXIT_FAILURE);
-	}
-
 	/* Gather all particle information, depending on which MC trees are available */
 	bool MeV = false;  // use MeV or GeV?
 	//TODO fit converges significantly slower (3 times or even more iteration steps) for MeV ?
+	nParticles = 0, nParticlesCB = 0, nParticlesTAPS = 0;
 	particle_vector particles;
 	particle_t trueBeam(photon);
-	//TLorentzVector trueTarget = TLorentzVector(0., 0., 0., MASS_PROTON/1000.);
-	unsigned int nParticles = 0, nParticlesCB = 0, nParticlesTAPS = 0;
-	if (pluto_tree) {  // in case we have a Pluto tree
-		for (const PParticle* p : pluto->GetFinalState())
-			particles.push_back(particle_t(p->Vect4(), static_cast<particle_id>(p->ID())));
-		//trueBeam = pluto->GetMCTrue(0)->Vect4() - trueTarget;
-		trueBeam.p4 = pluto->GetTrueBeam();
-	} else {  // if not, use Geant tree information
-		//TODO: maybe do this directly in the GTreeA2Geant?
-		for (unsigned int i = 0; i < geant->GetNTrueParticles(); i++)
-			particles.push_back(particle_t(geant->GetTrueVector(i), static_cast<particle_id>(geant->GetTrueID(i))));
-		for (particle_it it = particles.begin(); it != particles.end();)
-			if (!it->is_final_state())
-				it = particles.erase(it);
-			else
-				++it;
-		trueBeam.p4 = geant->GetBeam();
-	}
+	GetTrueParticles(&particles, &trueBeam);
 	particle_t trueTarget(TLorentzVector(0., 0., 0., MeV ? MASS_PROTON : MASS_PROTON/1000.), proton);
 	if (MeV)
 		trueBeam.GeV2MeV();
@@ -189,7 +175,7 @@ void KinFitPhysics::ProcessEvent()
 
 	for (particle_t p : particles)
 		if (!p.is_final_state())
-			printf("no final state!\n");  //TODO: terminate here maybe?
+			throw noFS;
 
 
 	TLorentzVector tmpState(0., 0., 0., 0.);
@@ -220,8 +206,8 @@ void KinFitPhysics::ProcessEvent()
 			return;
 
 		double protEnergyReconstr = particles[charged[0]].E() - particles[charged[0]].M();
-		double invM_2neutral = tmpState.M();
-		invM_2g->Fill(MeV ? invM_2neutral : invM_2neutral*1000.);
+		double invM_2neutral = MeV ? tmpState.M() : tmpState.M()*1000.;
+		invM_2g->Fill(invM_2neutral);
 
 		/* At this point we have one charged and two neutral particles. Start to examine all tagged photons for prompt and random windows. */
 		//for (unsigned int i = 0; i < nBeamPhotons; i++) {
@@ -479,6 +465,7 @@ void KinFitPhysics::ProcessEvent()
 		//kinFit.print();
 		ndf = kinFit.getNDF();
 		chisq = kinFit.getS();
+		//prob = kinFit.getProbability();
 		prob = TMath::Prob(chisq, ndf);
 		chisq_hist->Fill(chisq);
 		prob_hist->Fill(prob);
@@ -488,14 +475,41 @@ void KinFitPhysics::ProcessEvent()
 		pi0_fitted->Fill(pi0_mass_fitted);
 		//coplanarity_fitted = abs((fitPhoton1 + fitPhoton2).Phi() - fitProton.Phi())*R2D;
 		copl_fitted->Fill(coplanarity_fitted);
-		missM_pi0_vs_pTheta->Fill(MeV ? (trueBeam + trueTarget - fitProton).M() : (trueBeam + trueTarget - fitProton).M()*1000., fitProton.Theta()*R2D);
-		invM_gg_vs_beamE->Fill(pi0_mass_fitted, MeV ? trueBeam.E() : trueBeam.E()*1000.);
-		p_kinE_vs_pTheta_true->Fill((fitProton.E() - fitProton.M())*1000., particles[charged[0]].Theta()*R2D);
+		if (prob > .1) {
+			missM_pi0_vs_pTheta->Fill(MeV ? (trueBeam + trueTarget - fitProton).M() : (trueBeam + trueTarget - fitProton).M()*1000., fitProton.Theta()*R2D);
+			invM_gg_vs_beamE->Fill(pi0_mass_fitted, MeV ? trueBeam.E() : trueBeam.E()*1000.);
+			p_kinE_vs_pTheta_true->Fill((fitProton.E() - fitProton.M())*1000., particles[charged[0]].Theta()*R2D);
+			invM_gg_smeared_vs_invM_gg_fit->Fill(pi0_mass_smeared, pi0_mass_fitted);
+		}
 //if(count++==5)exit(0);
 		//delete temp_results;
 
 	}
 
+}
+
+void KinFitPhysics::GetParticles()
+{
+	//TODO
+}
+
+void KinFitPhysics::GetTrueParticles(particle_vector* particles, particle_t* beam)
+{
+	if (pluto_tree) {  // in case we have a Pluto tree
+		for (const PParticle* p : pluto->GetFinalState())
+			particles->push_back(particle_t(p->Vect4(), static_cast<particle_id>(p->ID())));
+		beam->p4 = pluto->GetTrueBeam();
+	} else {  // if not, use Geant tree information
+		//TODO: maybe do this directly in the GTreeA2Geant?
+		for (unsigned int i = 0; i < geant->GetNTrueParticles(); i++)
+			particles->push_back(particle_t(geant->GetTrueVector(i), static_cast<particle_id>(geant->GetTrueID(i))));
+		for (particle_it it = particles->begin(); it != particles->end();)
+			if (!it->is_final_state())
+				it = particles->erase(it);
+			else
+				++it;
+		beam->p4 = geant->GetBeam();
+	}
 }
 
 void KinFitPhysics::ProcessScalerRead()
@@ -521,6 +535,7 @@ Bool_t KinFitPhysics::Write()
 	GTreeManager::Write(missM_pi0_vs_pTheta);
 	GTreeManager::Write(invM_gg_vs_beamE);
 	GTreeManager::Write(p_kinE_vs_pTheta_true);
+	GTreeManager::Write(invM_gg_smeared_vs_invM_gg_fit);
 
 	GTreeManager::Write(photon1PullE);
 	GTreeManager::Write(photon1PullTheta);
