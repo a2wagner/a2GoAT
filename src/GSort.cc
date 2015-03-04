@@ -332,8 +332,8 @@ Bool_t	GSort::SortOnParticle(const GTreeParticle &tree, Int_t Num, Int_t cond, D
     for (Int_t i = 0; i < tree.GetNParticles(); i++)
 	{
         // Check theta limits
-        if ((tree.Particle(i).Theta() <= ThetaMin) ||
-            (tree.Particle(i).Theta() >= ThetaMax))
+        if ((tree.GetTheta(i) < ThetaMin) ||
+            (tree.GetTheta(i) >= ThetaMax))
 			return kFALSE;
         NumberFound++;
     }
@@ -365,32 +365,32 @@ Bool_t	GSort::SortOnNeutrality(Bool_t charge, Int_t Num, Sort_Condition cond, Do
         for (Int_t i = 0; i <GetElectrons()->GetNParticles(); i++)
         {
             //Check theta limits
-            if ((GetElectrons()->Particle(i).Theta() <= ThetaMin) ||
-                (GetElectrons()->Particle(i).Theta() >= ThetaMax))
+            if ((GetElectrons()->GetTheta(i) < ThetaMin) ||
+                (GetElectrons()->GetTheta(i) >= ThetaMax))
                 continue;
             NumberFound++;
         }
         for (Int_t i = 0; i <GetChargedPions()->GetNParticles(); i++)
         {
             //Check theta limits
-            if ((GetChargedPions()->Particle(i).Theta() <= ThetaMin) ||
-                (GetChargedPions()->Particle(i).Theta() >= ThetaMax))
+            if ((GetChargedPions()->GetTheta(i) < ThetaMin) ||
+                (GetChargedPions()->GetTheta(i) >= ThetaMax))
                 continue;
             NumberFound++;
         }
         for (Int_t i = 0; i <GetProtons()->GetNParticles(); i++)
         {
             //Check theta limits
-            if ((GetProtons()->Particle(i).Theta() <= ThetaMin) ||
-                (GetProtons()->Particle(i).Theta() >= ThetaMax))
+            if ((GetProtons()->GetTheta(i) < ThetaMin) ||
+                (GetProtons()->GetTheta(i) >= ThetaMax))
                 continue;
             NumberFound++;
         }
         for (Int_t i = 0; i <GetRootinos()->GetNParticles(); i++)
         {
             //Check theta limits
-            if ((GetRootinos()->Particle(i).Theta() <= ThetaMin) ||
-                (GetRootinos()->Particle(i).Theta() >= ThetaMax))
+            if ((GetRootinos()->GetTheta(i) < ThetaMin) ||
+                (GetRootinos()->GetTheta(i) >= ThetaMax))
                 continue;
             NumberFound++;
         }
@@ -400,16 +400,16 @@ Bool_t	GSort::SortOnNeutrality(Bool_t charge, Int_t Num, Sort_Condition cond, Do
         for (Int_t i = 0; i < GetPhotons()->GetNParticles(); i++)
         {
             //Check theta limits
-            if ((GetPhotons()->Particle(i).Theta() <= ThetaMin) ||
-                (GetPhotons()->Particle(i).Theta() >= ThetaMax))
+            if ((GetPhotons()->GetTheta(i) < ThetaMin) ||
+                (GetPhotons()->GetTheta(i) >= ThetaMax))
                 continue;
             NumberFound++;
         }
         for (Int_t i = 0; i < GetNeutrons()->GetNParticles(); i++)
         {
             //Check theta limits
-            if ((GetNeutrons()->Particle(i).Theta() <= ThetaMin) ||
-                (GetNeutrons()->Particle(i).Theta() >= ThetaMax))
+            if ((GetNeutrons()->GetTheta(i) < ThetaMin) ||
+                (GetNeutrons()->GetTheta(i) >= ThetaMax))
                 continue;
             NumberFound++;
         }

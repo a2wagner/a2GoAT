@@ -2,7 +2,9 @@
 #define __GTreeEventParameters_h__
 
 
+#include "Rtypes.h"
 #include "GTree.h"
+
 
 #define GTreeEventParameters_MAX 128
 

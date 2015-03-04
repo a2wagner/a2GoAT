@@ -34,7 +34,7 @@ protected:
 public:
     PPi0Example();
     virtual ~PPi0Example();
-    virtual Bool_t  Init(const char* configfile);
+    virtual Bool_t  Init();
 
 };
 #endif

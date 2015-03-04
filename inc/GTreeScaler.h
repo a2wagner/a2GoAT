@@ -2,8 +2,7 @@
 #define __GTreeScaler_h__
 
 
-#include <TLorentzVector.h>
-
+#include "Rtypes.h"
 #include "GTree.h"
 
 

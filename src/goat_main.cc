@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
     }
 
     // Perform full initialisation
-    if(!analysis->GConfigFile::Init())
+    if(!analysis->Init())
     {
         cout << "ERROR: Init failed!" << endl;
         return 0;

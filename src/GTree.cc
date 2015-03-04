@@ -99,7 +99,7 @@ Bool_t  GTree::OpenForInput()
         return kTRUE;
     }
 
-    cout << "#ERROR# GTree::OpenForInput(TFile& inputFile): could not find a tree called " << name.Data() << " in input file " << manager->inputFile->GetName() << "!" << endl;
+    cout << "#ERROR# " << __PRETTY_FUNCTION__ << ": could not find a tree called " << name.Data() << " in input file " << manager->inputFile->GetName() << "!" << endl;
     status = status & (~FLAG_OPENFORINPUT);
     return kFALSE;
 }
@@ -117,7 +117,7 @@ Bool_t  GTree::OpenForOutput()
         return kTRUE;
     }
 
-    cout << "#ERROR# GTree::OpenForInput(TFile& inputFile): can not create output tree " << name.Data() << " in output file " << manager->inputFile->GetName() << "!" << endl;
+    cout << "#ERROR# " << __PRETTY_FUNCTION__ << ": can not create output tree " << name.Data() << " in output file " << manager->inputFile->GetName() << "!" << endl;
     status = status & (~FLAG_OPENFOROUTPUT);
     return kFALSE;
 }

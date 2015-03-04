@@ -2,6 +2,7 @@
 #define __GTreeSetupParameters_h__
 
 
+#include "Rtypes.h"
 #include "GTree.h"
 
 
@@ -65,6 +66,8 @@ private:
     Double_t	VetoTDCLoThr[438];
     Double_t	VetoTDCHiThr[438];
     Double_t	VetoTDCOffset[438];
+
+    Bool_t      hasOverlaps;
 
 protected:
     virtual void    SetBranchAdresses();
@@ -168,6 +171,8 @@ public:
             Double_t        GetVetoTDCHiThr(const Int_t index)         const	{return VetoTDCHiThr[index];}
     const	Double_t*       GetVetoTDCOffset()                         const	{return VetoTDCOffset;}
             Double_t        GetVetoTDCOffset(const Int_t index)        const	{return VetoTDCOffset[index];}
+
+            Bool_t          HasOverlaps()                              const    {return hasOverlaps;}
 };
 
 #endif

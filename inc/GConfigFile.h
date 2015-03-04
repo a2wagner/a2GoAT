@@ -23,7 +23,7 @@ public:
     virtual Bool_t	Init(const char* configFile);
             Bool_t	Init() {Init(globalConfigFile.c_str());}
             void    SetConfigFile(const Char_t* configFile)	{globalConfigFile = configFile;}
-    const   Char_t* GetConfigFile() const                       {}
+    const   Char_t* GetConfigFile() const {return globalConfigFile.c_str();}
             Bool_t  BaseConfig(const int argc, char* argv[], const std::string& defaultInputPrefix, const std::string& defaultOutputPrefix);
     const   Int_t   GetNFiles() {return inputFileList.size();}
     std::string GetInputFile(const Int_t i) {return inputFileList.at(i);}

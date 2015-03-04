@@ -20,7 +20,8 @@ GTreeSetupParameters::GTreeSetupParameters(GTreeManager *Manager)    :
     BaF2ClusterThr(0),
     nVeto(0),
     VetoGlobalOffset(0),
-    VetoDistance(0)
+    VetoDistance(0),
+    hasOverlaps(0)
 {
     for(Int_t i=0; i<352; i++)
     {
@@ -88,7 +89,11 @@ void    GTreeSetupParameters::SetBranchAdresses()
     inputTree->SetBranchAddress("TaggerTDCOffset", TaggerTDCOffset);
     inputTree->SetBranchAddress("TaggerElectronEnergy", TaggerElectronEnergy);
     inputTree->SetBranchAddress("TaggerPhotonEnergy", TaggerPhotonEnergy);
-    inputTree->SetBranchAddress("TaggerEnergyWidth", TaggerEnergyWidth);
+    if(inputTree->GetBranch("TaggerEnergyWidth"))
+    {
+        inputTree->SetBranchAddress("TaggerEnergyWidth", TaggerEnergyWidth);
+        hasOverlaps = true;
+    }
 
     inputTree->SetBranchAddress("nNaI", &nNaI);
     inputTree->SetBranchAddress("NaIGlobalOffset", &NaIGlobalOffset);
@@ -149,7 +154,7 @@ void    GTreeSetupParameters::SetBranches()
     outputTree->Branch("TaggerTDCOffset", TaggerTDCOffset, "TaggerTDCOffset[nTagger]/D");
     outputTree->Branch("TaggerElectronEnergy", TaggerElectronEnergy, "TaggerElectronEnergy[nTagger]/D");
     outputTree->Branch("TaggerPhotonEnergy", TaggerPhotonEnergy, "TaggerPhotonEnergy[nTagger]/D");
-    outputTree->Branch("TaggerEnergyWidth", TaggerEnergyWidth, "TaggerEnergyWidth[nTagger]/D");
+    if(hasOverlaps) outputTree->Branch("TaggerEnergyWidth", TaggerEnergyWidth, "TaggerEnergyWidth[nTagger]/D");
 
     outputTree->Branch("nNaI", &nNaI, "nNaI/I");
     outputTree->Branch("NaIGlobalOffset", &NaIGlobalOffset, "NaIGlobalOffset/D");

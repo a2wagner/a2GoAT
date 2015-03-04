@@ -48,7 +48,7 @@ public:
     PPhysics();
     virtual ~PPhysics();
 
-    virtual Bool_t	Init(const Char_t* file_config);
+    virtual Bool_t	Init();
 	virtual void	Analyse() {;}
 	virtual void	Reconstruct();
     virtual Bool_t	Write();

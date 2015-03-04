@@ -59,7 +59,7 @@ GTreeManager::GTreeManager()    :
     setupParameters = new GTreeSetupParameters(this);
     eventParameters = new GTreeEventParameters(this);
     detectorHits = new GTreeDetectorHits(this);
-    tracks = new GTreeTrack(this);
+    tracks = new GTreeTrack(this, "tracks");
     tagger = new GTreeTagger(this);
     trigger = new GTreeTrigger(this);
     scalers = new GTreeScaler(this);
@@ -227,6 +227,13 @@ Bool_t  GTreeManager::Write(const TNamed* object)
 
 Bool_t  GTreeManager::TraverseValidEvents_AcquTreeFile()
 {
+    for(Int_t l=0; l<readSingleReadList.GetEntriesFast(); l++)
+    {
+        ((GTree*)readSingleReadList[l])->GetEntryFast(0);
+        ((GTree*)readSingleReadList[l])->Fill();
+        if(!tagger->HasEnergy()) tagger->SetCalibration(setupParameters->GetNTagger(),setupParameters->GetTaggerPhotonEnergy());
+    }
+
     if(!scalers->IsOpenForInput())
     {
         cout << "No Scaler tree available. Expect MC data. Loop over all events" << endl;
@@ -246,13 +253,6 @@ Bool_t  GTreeManager::TraverseValidEvents_AcquTreeFile()
     {
         std::cout << "Less than 2 scaler reads. Can not find events with correct scalers" <<std::endl;
         return kFALSE;
-    }
-
-    for(Int_t l=0; l<readSingleReadList.GetEntriesFast(); l++)
-    {
-        ((GTree*)readSingleReadList[l])->GetEntryFast(0);
-        ((GTree*)readSingleReadList[l])->Fill();
-        if(!tagger->HasEnergy()) tagger->SetCalibration(setupParameters->GetTaggerPhotonEnergy());
     }
 
     // find correct shift
@@ -317,6 +317,12 @@ Bool_t  GTreeManager::TraverseValidEvents_AcquTreeFile()
 
 Bool_t  GTreeManager::TraverseValidEvents_GoATTreeFile()
 {
+    for(Int_t l=0; l<readSingleReadList.GetEntriesFast(); l++)
+    {
+        ((GTree*)readSingleReadList[l])->GetEntryFast(0);
+        if(!tagger->HasEnergy()) tagger->SetCalibration(setupParameters->GetNTagger(),setupParameters->GetTaggerPhotonEnergy());
+    }
+
     if(!scalers->IsOpenForInput())
     {
         cout << "No Scaler tree available. Expect MC data. Loop over all events" << endl;
@@ -330,12 +336,6 @@ Bool_t  GTreeManager::TraverseValidEvents_GoATTreeFile()
         cout << "\tProcess events from " << 0 << " to " << GetNEntries() << "."<< endl;
         TraverseEntries(0, GetNEntries());
         return true;
-    }
-
-    for(Int_t l=0; l<readSingleReadList.GetEntriesFast(); l++)
-    {
-        ((GTree*)readSingleReadList[l])->GetEntryFast(0);
-        if(!tagger->HasEnergy()) tagger->SetCalibration(setupParameters->GetTaggerPhotonEnergy());
     }
 
     Int_t   event       = 0;

@@ -49,7 +49,7 @@ private:
             Bool_t      TraverseValidEvents_GoATTreeFile();
 
     //private tree variables
-    GTreeTrack*   tracks;
+    GTreeTrack*         tracks;
     GTreeTagger*        tagger;
     GTreeLinPol*        linpol;
     GTreeTrigger*       trigger;

@@ -3,9 +3,7 @@
 
 
 #include <TLorentzVector.h>
-#include <TClonesArray.h>
-
-
+#include "Rtypes.h"
 #include "GTree.h"
 
 
@@ -20,7 +18,7 @@ private:
     Double_t        taggedTime[GTreeTagger_MAX];
     Double_t        taggedEnergy[GTreeTagger_MAX];
     Bool_t          hasEnergy;
-    Double_t*       calibration;
+    Double_t        calibration[352];
 
 protected:
     virtual void    SetBranchAdresses();
@@ -40,7 +38,7 @@ public:
     const	Double_t*       GetTaggedEnergy()                   const	{return taggedEnergy;}
             Double_t        GetTaggedEnergy(const Int_t index)	const	{if(hasEnergy) return taggedEnergy[index]; return calibration[taggedChannel[index]];}
             Bool_t          HasEnergy()                         const   {return hasEnergy;}
-            void            SetCalibration(const Double_t *energy)      {calibration = (Double_t*)energy;}
+            void            SetCalibration(const Int_t nChan, const Double_t *energy);
     TLorentzVector          GetVector(const Int_t index)        const   {return TLorentzVector(0, 0, taggedEnergy[index], taggedEnergy[index]);}
     TLorentzVector          GetVectorProtonTarget(const Int_t index)    const;
 };

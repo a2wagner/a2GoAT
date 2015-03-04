@@ -1,7 +1,7 @@
 #include "GTreeTrack.h"
 
-GTreeTrack::GTreeTrack(GTreeManager *Manager)    :
-    GTree(Manager, TString("tracks")),
+GTreeTrack::GTreeTrack(GTreeManager *Manager, const TString& _Name)    :
+    GTree(Manager,_Name),
     nTracks(0)
 {
     for(Int_t i=0; i<GTreeTrack_MAX; i++)
@@ -11,9 +11,9 @@ GTreeTrack::GTreeTrack(GTreeManager *Manager)    :
         phi[i] = 0;
         time[i] = 0;
         clusterSize[i] = 0;
-        centralCrystal[i] = 0;
-        centralVeto[i] = 0;
-        apparatus[i] = 0;
+        centralCrystal[i] = -1;
+        centralVeto[i] = -1;
+        detectors[i] = 0;
         //Charged detector energies
         vetoEnergy[i] = 0;
         MWPC0Energy[i] = 0;
@@ -36,7 +36,7 @@ void    GTreeTrack::SetBranchAdresses()
     inputTree->SetBranchAddress("clusterSize", clusterSize);
     inputTree->SetBranchAddress("centralCrystal", centralCrystal);
     inputTree->SetBranchAddress("centralVeto", centralVeto);
-    inputTree->SetBranchAddress("apparatus", apparatus);
+    inputTree->SetBranchAddress("detectors", detectors);
     inputTree->SetBranchAddress("vetoEnergy", vetoEnergy);
     inputTree->SetBranchAddress("MWPC0Energy", MWPC0Energy);
     inputTree->SetBranchAddress("MWPC1Energy", MWPC1Energy);
@@ -52,7 +52,7 @@ void    GTreeTrack::SetBranches()
     outputTree->Branch("clusterSize", clusterSize, "clusterSize[nTracks]/I");
     outputTree->Branch("centralCrystal", centralCrystal, "centralCrystal[nTracks]/I");
     outputTree->Branch("centralVeto", centralVeto, "centralVeto[nTracks]/I");
-    outputTree->Branch("apparatus", apparatus, "apparatus[nTracks]/I");
+    outputTree->Branch("detectors", detectors, "detectors[nTracks]/I");
     outputTree->Branch("vetoEnergy", vetoEnergy, "vetoEnergy[nTracks]/D");
     outputTree->Branch("MWPC0Energy", MWPC0Energy, "MWPC0Energy[nTracks]/D");
     outputTree->Branch("MWPC1Energy", MWPC1Energy, "MWPC1Energy[nTracks]/D");

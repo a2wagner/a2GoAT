@@ -12,7 +12,7 @@ PPhysics::~PPhysics()
 {
 }
 
-Bool_t	PPhysics::Init(const Char_t *configfile)
+Bool_t	PPhysics::Init()
 {
 	return kTRUE;
 }
@@ -153,13 +153,13 @@ void PPhysics::FillMass(const GTreeParticle& tree, TH1* Hist)
 {
     for (Int_t i = 0; i < tree.GetNParticles(); i++)
 	{
-		Hist->Fill(tree.Particle(i).M());
+        Hist->Fill(tree.GetMass(i));
 	}
 }
 
 void PPhysics::FillMass(const GTreeParticle& tree, Int_t particle_index, TH1* Hist)
 {
-	Hist->Fill(tree.Particle(particle_index).M());
+    Hist->Fill(tree.GetMass(particle_index));
 }
 
 void PPhysics::FillBeamAsymmetry(const GTreeParticle& tree, Int_t particle_index, TH1* Hprompt, TH1* Hrandom, Double_t MM_min, Double_t MM_max)
@@ -185,19 +185,15 @@ void PPhysics::FillBeamAsymmetry(const GTreeParticle& tree, Int_t particle_index
     missingp4 = CalcMissingP4(tree, particle_index,tagger_index);
  //   cout << "MM " << missingp4.M() << endl;     
     if((missingp4.M() < MM_min) || (missingp4.M() > MM_max)) return;
-
-   // Calc phi
-   Double_t phi = tree.Particle(particle_index).Phi() * TMath::RadToDeg();
-//    cout << "phi " << phi << endl;     
    
-   if (GHistBGSub::IsPrompt(time)) Hprompt->Fill(phi); //cout << "prompt" << endl;}
-   if (GHistBGSub::IsRandom(time)) Hrandom->Fill(phi);	//cout << "random" << endl;}
+   if (GHistBGSub::IsPrompt(time)) Hprompt->Fill(tree.GetPhi(particle_index)); //cout << "prompt" << endl;}
+   if (GHistBGSub::IsRandom(time)) Hrandom->Fill(tree.GetPhi(particle_index));	//cout << "random" << endl;}
 }
 
 Double_t PPhysics::CalcCoplanarity(const GTreeParticle& tree1, Int_t particle_index1, const GTreeParticle& tree2, Int_t particle_index2)
 {
-   Double_t phi1 = tree1.Particle(particle_index1).Phi() * TMath::RadToDeg();
-   Double_t phi2 = tree2.Particle(particle_index2).Phi() * TMath::RadToDeg();
+   Double_t phi1 = tree1.GetPhi(particle_index1);
+   Double_t phi2 = tree2.GetPhi(particle_index2);
    Double_t phidiff = TMath::Abs(phi1 - phi2);
 
    return phidiff;
@@ -288,12 +284,9 @@ void PPhysics::FillBeamAsymmetry(const GTreeParticle& tree, Int_t particle_index
     // calc missing p4
     missingp4 = CalcMissingP4(tree, particle_index,tagger_index);
     if((missingp4.M() < MM_min) || (missingp4.M() > MM_max)) return;
-
-   // Calc phi and Fill GH1
-   Double_t phi = tree.Particle(particle_index).Phi() * TMath::RadToDeg();
    
-   if(TaggerBinning)   gHist->Fill(phi,time,GetTagger()->GetTaggedChannel(tagger_index));
-   else gHist->Fill(phi,time);
+   if(TaggerBinning)   gHist->Fill(tree.GetPhi(particle_index),time,GetTagger()->GetTaggedChannel(tagger_index));
+   else gHist->Fill(tree.GetPhi(particle_index),time);
 
 }
 
@@ -359,13 +352,13 @@ void PPhysics::FillMass(const GTreeParticle& tree, GH1* gHist)
 {
     for (Int_t i = 0; i < tree.GetNParticles(); i++)
 	{
-		gHist->Fill(tree.Particle(i).M());
+        gHist->Fill(tree.GetMass(i));
 	}
 }
 
 void PPhysics::FillMass(const GTreeParticle& tree, Int_t particle_index, GH1* gHist)
 {
-	gHist->Fill(tree.Particle(particle_index).M());
+    gHist->Fill(tree.GetMass(particle_index));
 }
 
 Bool_t 	PPhysics::Write()

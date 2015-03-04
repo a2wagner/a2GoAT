@@ -21,11 +21,10 @@ PPi0Example::~PPi0Example()
 {
 }
 
-Bool_t	PPi0Example::Init(const char* configfile)
+Bool_t	PPi0Example::Init()
 {
 	cout << "Initialising physics analysis..." << endl;
 	cout << "--------------------------------------------------" << endl << endl;
-	if(configfile) SetConfigFile(configfile);
 
 	if(!InitBackgroundCuts()) return kFALSE;
 	if(!InitTargetMass()) return kFALSE;
