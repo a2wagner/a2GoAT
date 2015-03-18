@@ -109,7 +109,7 @@ struct particle_t {
 		p4.SetXYZT(pt*cos(phi), pt*sin(phi), pt*sinh(p4.Eta()), e);
 	}
 	void GeV2MeV(){ transform(1000.); }
-	void MeV2GeV(){ transform(.0001); }
+	void MeV2GeV(){ transform(.001); }
 
 	/* Some frequently used methods from TLorentzVector */
 	Double_t E()     { return p4.E(); }
