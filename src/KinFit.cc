@@ -6,7 +6,7 @@
 
 #include "KinFit.h"
 
-KinFit::KinFit()
+KinFit::KinFit() : chi2(0.), ndf(0.), probability(0.)
 {
 }
 
@@ -40,8 +40,22 @@ int KinFit::fillSquareMatrixDiagonal(TMatrixD* m, Double_t* e, const int rows)
 	return fillMatrixDiagonal(m, e, rows, rows);
 }
 
-double KinFit::getProbability()
+int KinFit::fit()
 {
-	return TMath::Prob(getS(), getNDF());
+	int ret = TKinFitter::fit();
+
+	chi2 = getS();
+	ndf = getNDF();
+	probability = TMath::Prob(chi2, ndf);
+
+	return ret;
+}
+
+void KinFit::reset()
+{
+	TKinFitter::reset();
+	chi2 = 0.;
+	ndf = 0.;
+	probability = 0.;
 }
 
