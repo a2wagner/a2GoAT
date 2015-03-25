@@ -7,8 +7,8 @@
 # General Setup
 #-----------------------------------------------------------------------
 
-Input-Directory: /home/wagners/MC/
-Output-Directory: /home/wagners/MC/
+Input-Directory: /home/wagners/MC/acqu/
+Output-Directory: /home/wagners/MC/goat/
 #Input-File: Acqu_g4_sim_pi0_gg_01.root
 #TODO: Check how to handle this, doesn't work...
 #Input-Prefix: Acqu
