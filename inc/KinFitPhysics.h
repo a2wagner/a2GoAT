@@ -33,18 +33,13 @@ private:
 		}
 	} noFS;
 
-	GH1* time;
-	GH1* time_cut;
-	GH1* time_2g;
-	GH1* time_2g_cut;
-
-	GH1* IM;
-	GH1* IM_2g;
-
-	GH1* MM;
-	GH1* MM_2g;
-
-	TH1* TaggerAccScal;
+	class beam_photon_mismatch_exception : public std::exception
+	{
+		virtual const char* what() const throw()
+		{
+			return "Number of beam photons is not 1!";
+		}
+	} beamMismatch;
 
 	// used to store if the current file contains MC data
 	bool MC;
@@ -62,13 +57,32 @@ private:
 	TH1* missM;
 	TH1* expectProt;
 
+	TH1* balanceE;
+	TH1* balancePx;
+	TH1* balancePy;
+	TH1* balancePz;
+
+	TH1* MCbeamDeltaE;
+	TH1* MCbeamDeltaP;
+	TH1* MCprotonDeltaE;
+	TH1* MCprotonDeltaP;
+	TH1* MCphoton1DeltaE;
+	TH1* MCphoton1DeltaP;
+	TH1* MCphoton2DeltaE;
+	TH1* MCphoton2DeltaP;
+
 	TH2* pi0_fit_steps;
+	TH2* etap_fit_steps;
 	TH2* coplanarity;
 
 	TH2* missM_pi0_vs_pTheta;
-	TH2* invM_gg_vs_beamE;
-	TH2* p_kinE_vs_pTheta_true;
-	TH2* invM_gg_smeared_vs_invM_gg_fit;
+	TH2* pi0_invM_gg_vs_beamE;
+	TH2* pi0_p_kinE_vs_pTheta_true;
+	TH2* pi0_invM_gg_smeared_vs_invM_gg_fit;
+	TH2* missM_etap_vs_pTheta;
+	TH2* etap_invM_gg_vs_beamE;
+	TH2* etap_p_kinE_vs_pTheta_true;
+	TH2* etap_invM_gg_smeared_vs_invM_gg_fit;
 
 	TH1* photon1PullE;
 	TH1* photon1PullTheta;
@@ -84,6 +98,8 @@ private:
 	TH1* prob_hist;
 	TH1* pi0_smeared;
 	TH1* pi0_fitted;
+	TH1* etap_smeared;
+	TH1* etap_fitted;
 	TH1* copl_smeared;
 	TH1* copl_fitted;
 	TH1* nIter_converged;
@@ -104,6 +120,7 @@ protected:
 	//const double MASS_PROTON = 938.272;
 	//const double MASS_ETA = 547.862;
 	const double MASS_PIZERO = 134.9766;
+	const double MASS_ELECTRON = 0.5109989;
 	const double R2D = 180./3.14159265359;
 	const double MAX_DOUBLE = 0x1.FFFFFFFFFFFFFp1023;
 
@@ -116,8 +133,12 @@ protected:
 	double sigma_phi(const TLorentzVector* const p);
 
 	// collect particles
-	void GetParticles();
+	void GetParticles(particle_vector* particles, particle_t* beam);
+	void GetParticles(particle_vector* particles);
+	void GetBeam(particle_t* beam);
 	void GetTrueParticles(particle_vector* particles, particle_t* beam);
+	void GetTrueParticles(particle_vector* particles);
+	void GetTrueBeam(particle_t* beam);
 
 	virtual Bool_t Start();
 	virtual void ProcessEvent();
