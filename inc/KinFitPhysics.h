@@ -6,6 +6,8 @@
 #include <cstdio>
 #include <string>
 #include <exception>
+#include <vector>
+#include <map>
 
 #include "GTreeManager.h"
 #include "GTreePluto.h"
@@ -24,6 +26,9 @@ private:
 
 	typedef std::vector<particle_t> particle_vector;
 	typedef particle_vector::iterator particle_it;
+
+	typedef std::map<unsigned int, unsigned int> match;
+	typedef std::pair<unsigned int, unsigned int> match_pair;
 
 	class no_final_state_exception : public std::exception
 	{
@@ -121,7 +126,8 @@ protected:
 	//const double MASS_ETA = 547.862;
 	const double MASS_PIZERO = 134.9766;
 	const double MASS_ELECTRON = 0.5109989;
-	const double R2D = 180./3.14159265359;
+	const double PI = 3.14159265359;
+	const double R2D = 180./PI;
 	const double MAX_DOUBLE = 0x1.FFFFFFFFFFFFFp1023;
 
 	// class used for kinematic fitting
@@ -139,6 +145,9 @@ protected:
 	void GetTrueParticles(particle_vector* particles, particle_t* beam);
 	void GetTrueParticles(particle_vector* particles);
 	void GetTrueBeam(particle_t* beam);
+
+	// match generated true MC data with simulated data
+	void MatchMC(particle_vector* particles, particle_vector* trueParts, match* matches);
 
 	virtual Bool_t Start();
 	virtual void ProcessEvent();

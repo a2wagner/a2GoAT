@@ -223,51 +223,53 @@ void KinFitPhysics::ProcessEvent()
 		balancePy->Fill(MeV ? balance.Py() : balance.Py()*1000.);
 		balancePz->Fill(MeV ? balance.Pz() : balance.Pz()*1000.);
 
+		/* calculate differences between true MC data and detector smeared data */
 		double mcBeamDeltaE, mcBeamDeltaP, mcProtonDeltaE, mcProtonDeltaP,
 				mcPhoton1DeltaE, mcPhoton1DeltaP, mcPhoton2DeltaE, mcPhoton2DeltaP;
-		unsigned int posProton, posPhoton1, posPhoton2;
+		//unsigned int posProton, posPhoton1, posPhoton2;
 		particle_t trueBeam;
 		particle_vector trueParts;
-
 		TLorentzVector delta;
+		match matches;
 		GetTrueParticles(&trueParts, &trueBeam);
-		bool hasPhoton = false;
-		for (unsigned int i = 0; i < trueParts.size(); i++) {
-			if (trueParts[i].id == proton)
-				posProton = i;
-			else if (trueParts[i].id == photon) {  // set photon1 to the photon with the higher energy (cluster algorithm)
-				if (!hasPhoton) {
-					posPhoton1 = posPhoton2 = i;
-					hasPhoton = true;
-				} else
-					if (trueParts[posPhoton1].E() < trueParts[i].E())
-						posPhoton1 = i;
-					else
-						posPhoton2 = i;
+
+		MatchMC(&particles, &trueParts, &matches);
+
+		bool mismatch = false;
+		std::vector<unsigned int> values;
+		std::transform(matches.begin(), matches.end(), back_inserter(values), [](match::value_type& val){ return val.second; });
+		for (unsigned int i = 0; i < matches.size(); i++) {
+			int sum = std::count(values.begin(), values.end(), i);
+			if (sum > 1) {
+				mismatch = true;
+				printf("MATCHING ERROR: More than one occurrence of value %d!\n", i);
+				std::copy(values.begin(), values.end(), std::ostream_iterator<unsigned int>(std::cout, "\n"));
 			}
 		}
 
-		delta = trueBeam - beam;
-		mcBeamDeltaE = delta.E();
-		mcBeamDeltaP = delta.P();
-		delta = trueParts[posProton] - particles[charged[0]];
-		mcProtonDeltaE = delta.E();
-		mcProtonDeltaP = delta.P();
-		delta = trueParts[posPhoton1] - particles[neutral[0]];
-		mcPhoton1DeltaE = delta.E();
-		mcPhoton1DeltaP = delta.P();
-		delta = trueParts[posPhoton2] - particles[neutral[1]];
-		mcPhoton2DeltaE = delta.E();
-		mcPhoton2DeltaP = delta.P();
+		if (!mismatch) {
+			delta = trueBeam - beam;
+			mcBeamDeltaE = delta.E();
+			mcBeamDeltaP = delta.P();
+			delta = trueParts[matches[charged[0]]] - particles[charged[0]];
+			mcProtonDeltaE = delta.E();
+			mcProtonDeltaP = delta.P();
+			delta = trueParts[matches[neutral[0]]] - particles[neutral[0]];
+			mcPhoton1DeltaE = delta.E();
+			mcPhoton1DeltaP = delta.P();
+			delta = trueParts[matches[neutral[1]]] - particles[neutral[1]];
+			mcPhoton2DeltaE = delta.E();
+			mcPhoton2DeltaP = delta.P();
 
-		MCbeamDeltaE->Fill(MeV ? mcBeamDeltaE : mcBeamDeltaE*1000.);
-		MCbeamDeltaP->Fill(MeV ? mcBeamDeltaP : mcBeamDeltaP*1000.);
-		MCprotonDeltaE->Fill(MeV ? mcProtonDeltaE : mcProtonDeltaE*1000.);
-		MCprotonDeltaP->Fill(MeV ? mcProtonDeltaP : mcProtonDeltaP*1000.);
-		MCphoton1DeltaE->Fill(MeV ? mcPhoton1DeltaE : mcPhoton1DeltaE*1000.);
-		MCphoton1DeltaP->Fill(MeV ? mcPhoton1DeltaP : mcPhoton1DeltaP*1000.);
-		MCphoton2DeltaE->Fill(MeV ? mcPhoton2DeltaE : mcPhoton2DeltaE*1000.);
-		MCphoton2DeltaP->Fill(MeV ? mcPhoton2DeltaP : mcPhoton2DeltaP*1000.);
+			MCbeamDeltaE->Fill(MeV ? mcBeamDeltaE : mcBeamDeltaE*1000.);
+			MCbeamDeltaP->Fill(MeV ? mcBeamDeltaP : mcBeamDeltaP*1000.);
+			MCprotonDeltaE->Fill(MeV ? mcProtonDeltaE : mcProtonDeltaE*1000.);
+			MCprotonDeltaP->Fill(MeV ? mcProtonDeltaP : mcProtonDeltaP*1000.);
+			MCphoton1DeltaE->Fill(MeV ? mcPhoton1DeltaE : mcPhoton1DeltaE*1000.);
+			MCphoton1DeltaP->Fill(MeV ? mcPhoton1DeltaP : mcPhoton1DeltaP*1000.);
+			MCphoton2DeltaE->Fill(MeV ? mcPhoton2DeltaE : mcPhoton2DeltaE*1000.);
+			MCphoton2DeltaP->Fill(MeV ? mcPhoton2DeltaP : mcPhoton2DeltaP*1000.);
+		}
 
 		/* prepare kinematic fit */
 		int err;
@@ -648,6 +650,24 @@ void KinFitPhysics::GetTrueBeam(particle_t* beam)
 		beam->p4 = pluto->GetTrueBeam();
 	else
 		beam->p4 = geant->GetBeam();
+}
+
+void KinFitPhysics::MatchMC(particle_vector* particles, particle_vector* trueParts, match* matches)
+{
+	double angle, tmp;
+	double maxDeltaE = 1.;
+	for (unsigned int i = 0; i < trueParts->size(); i++) {
+		angle = R2D;
+		unsigned int pos;
+		// try to find matching particles by their angle
+		for (unsigned int j = 0; j < particles->size(); j++)
+			if ((tmp = trueParts->at(i).p4.Angle(particles->at(j).Vect())) < angle
+					&& abs(trueParts->at(i).E() - particles->at(j).E())/trueParts->at(i).E() < maxDeltaE ) {
+				angle = tmp;
+				pos = j;
+			}
+		matches->insert(match_pair(i, pos));
+	}
 }
 
 void KinFitPhysics::ProcessScalerRead()
