@@ -158,6 +158,19 @@ add_executable(kinfit-example
    )
 target_link_libraries(kinfit-example ${LIBS} ${ROOT_LIBRARIES} libKinFitter)
 
+add_executable(sascha-physics
+   ${GOAT_BASE}
+   ${GOAT_GHIST}
+   inc/PPhysics.h
+   src/PPhysics.cc
+   inc/SaschaPhysics.h
+   src/SaschaPhysics.cc
+   inc/KinFit.h
+   src/KinFit.cc
+   src/sascha_physics_main.cc
+   )
+target_link_libraries(sascha-physics ${LIBS} ${ROOT_LIBRARIES} libKinFitter)
+
 # install some scripts to the bin directory
 # by creating symlinks
 file(GLOB CORE_EXTRA_SCRIPTS "scripts/*")
