@@ -3,7 +3,8 @@
 SaschaPhysics::SaschaPhysics() : MC(false), pluto(nullptr), geant(nullptr)
 {
 	n_particles = new TH1I("n_part", "n_particles", 16, 0, 15);
-	invM_2e = new TH1D("invM_2e", "inv_mass_2e", 3000, 0, 1500);
+	invM_eeg = new TH1D("invM_eeg", "inv_mass_eeg", 3000, 0, 1500);
+	invM_2e = new TH1D("invM_2e", "inv_mass_2e", 2000, 0, 1000);
 	missM = new TH1D("missM", "miss_mass", 600, 500, 1100);
 	expectProt = new TH1D("expectProt", "expected_proton", 500, 700, 1200);
 
@@ -53,6 +54,9 @@ SaschaPhysics::SaschaPhysics() : MC(false), pluto(nullptr), geant(nullptr)
 	nIter_converged = new TH1I("n_iter_converged", "n_iter_converged", 52, 0, 51);
 	nIter_all = new TH1I("n_iter_all", "n_iter_all", 52, 0, 51);
 	fitStatus = new TH1I("fit_status", "fit_status", 21, -10, 10);
+
+	q2 = new TH1D("q2", "q2", 2000, 0, 1000);
+	q2_cut = new TH1D("q2_cut", "q2_cut", 2000, 0, 1000);
 }
 
 SaschaPhysics::~SaschaPhysics()
@@ -179,11 +183,16 @@ void SaschaPhysics::ProcessEvent()
 	Double_t mMiss, protExpect;
 
 	if (nParticles == N_FINAL_STATE) {  // proceed if there are 3 particles in total (2g and proton)
-
+//		std::cout << "before:" << std::endl;
+//		std::for_each(particles.begin(), particles.end(), [](const particle_t& p){ std::cout << p.id << "\n"; });
 		// swap the proton and the last vector entry if the proton is not the last particle
 		for (auto it = particles.begin(); it != particles.end()-1; ++it)
-			if (it->id == proton)
-				std::iter_swap(it, particles.end());
+			if (it->id == proton) {
+				std::iter_swap(it, particles.end()-1);
+				break;
+			}
+//		std::cout << "after:" << std::endl;
+//		std::for_each(particles.begin(), particles.end(), [](const particle_t& p){ std::cout << p.id << "\n"; });
 
 		int i = 0;
 		for (auto& p : particles) {
@@ -198,13 +207,21 @@ void SaschaPhysics::ProcessEvent()
 			i++;
 		}
 
-		/* end event selection when we don't have three charged particle (entry in PID or Veto) and a neutral one */
-		if (nCharged != 3 && nNeutral != 1)
+		/* end event selection when we don't have three charged particle (entry in PID or Veto) and a neutral one as well as one proton*/
+		std::vector<particle_id> ids;
+		std::transform(particles.begin(), particles.end(), back_inserter(ids), [](const particle_t& p){ return p.id; });
+		int n_protons = std::count(ids.begin(), ids.end(), proton);
+		if (nCharged != 3 || nNeutral != 1 || n_protons != 1)
 			return;
+
+//		std::cout << "particle ids:" << std::endl;
+//		std::copy(ids.begin(), ids.end(), std::ostream_iterator<particle_id>(std::cout, "\n"));
 //std::cout << "Match signature pattern " << ++count << std::endl;
 		double protEnergyReconstr = particles[charged[0]].E() - particles[charged[0]].M();
-		double invM_2charged = MeV ? tmpState.M() : tmpState.M()*1000.;
-		invM_2e->Fill(invM_2charged);
+		double invM_2eg = MeV ? tmpState.M() : tmpState.M()*1000.;
+		double invM_2charged = (particles[charged[0]] + particles[charged[1]]).M();
+		invM_eeg->Fill(invM_2eg);
+		invM_2e->Fill(MeV ? invM_2charged : invM_2charged*1000.);
 
 		/* at this point we have one charged and two neutral particles */
 		missProton = target + beam - tmpState;
@@ -222,7 +239,6 @@ void SaschaPhysics::ProcessEvent()
 		double mcBeamDeltaE, mcBeamDeltaP, mcPhotonDeltaE, mcPhotonDeltaP,
 				mcLepton1DeltaE, mcLepton1DeltaP, mcLepton2DeltaE, mcLepton2DeltaP,
 				mcProtonDeltaE, mcProtonDeltaP;
-		//unsigned int posProton, posPhoton1, posPhoton2;
 		particle_t trueBeam;
 		particle_vector trueParts;
 		TLorentzVector delta;
@@ -238,8 +254,10 @@ void SaschaPhysics::ProcessEvent()
 			int sum = std::count(values.begin(), values.end(), i);
 			if (sum > 1) {
 				mismatch = true;
-				printf("MATCHING ERROR: More than one occurrence of value %d!\n", i);
-				std::copy(values.begin(), values.end(), std::ostream_iterator<unsigned int>(std::cout, "\n"));
+				if (MC && !trueMC && dbg) {
+					printf("WARNING: MC particle mismatch, more than one occurrence of value %d!\n", i);
+					std::copy(values.begin(), values.end(), std::ostream_iterator<unsigned int>(std::cout, "\n"));
+				}
 			}
 		}
 
@@ -499,7 +517,7 @@ void SaschaPhysics::ProcessEvent()
 		coplanarity->Fill(coplanarity_smeared, iterStep);
 		etap_fit_steps->Fill(etap_mass_smeared, iterStep++);
 		for (outer_it step = temp_results.begin(); step != temp_results.end(); ++step) {
-			coplanarity_fitted = abs((step->at(0) + step->at(1) + step->at(2)).Phi() - step->at(2).Phi())*R2D;
+			coplanarity_fitted = abs((step->at(0) + step->at(1) + step->at(2)).Phi() - step->at(3).Phi())*R2D;
 			coplanarity->Fill(coplanarity_fitted, iterStep);
 			etap_mass_fitted = MeV ? (step->at(0) + step->at(1) + step->at(2)).M() : (step->at(0) + step->at(1) + step->at(2)).M()*1000.;
 			etap_fit_steps->Fill(etap_mass_fitted, iterStep++);
@@ -565,12 +583,15 @@ void SaschaPhysics::ProcessEvent()
 		etap_fitted->Fill(etap_mass_fitted);
 		//coplanarity_fitted = abs((fitPhoton1 + fitPhoton2).Phi() - fitProton.Phi())*R2D;
 		copl_fitted->Fill(coplanarity_fitted);
+		double q2_fit = (fitLepton1 + fitLepton2).M();
+		q2->Fill(MeV ? q2_fit : q2_fit*1000.);
 		if (prob > .1) {  // perform a cut on the probability
 			// eta'
 			missM_etap_vs_pTheta->Fill(MeV ? (beam + target - fitProton).M() : (beam + target - fitProton).M()*1000., fitProton.Theta()*R2D);
 			etap_invM_gg_vs_beamE->Fill(etap_mass_fitted, MeV ? beam.E() : beam.E()*1000.);
 			etap_p_kinE_vs_pTheta_true->Fill((fitProton.E() - fitProton.M())*1000., particles[charged[0]].Theta()*R2D);
 			etap_invM_gg_smeared_vs_invM_gg_fit->Fill(etap_mass_smeared, etap_mass_fitted);
+			q2_cut->Fill(MeV ? q2_fit : q2_fit*1000.);
 		}
 
 		//delete temp_results;
@@ -690,6 +711,7 @@ Bool_t SaschaPhysics::Write()
 {
 	// Write the fit related TH1s
 	GTreeManager::Write(n_particles);
+	GTreeManager::Write(invM_eeg);
 	GTreeManager::Write(invM_2e);
 	GTreeManager::Write(missM);
 	GTreeManager::Write(expectProt);
@@ -740,6 +762,9 @@ Bool_t SaschaPhysics::Write()
 	GTreeManager::Write(nIter_converged);
 	GTreeManager::Write(nIter_all);
 	GTreeManager::Write(fitStatus);
+
+	GTreeManager::Write(q2);
+	GTreeManager::Write(q2_cut);
 
 	// Write all GH1's easily
 	GTreeManager::Write();

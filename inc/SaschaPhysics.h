@@ -59,6 +59,7 @@ private:
 
 	// fit related stuff
 	TH1* n_particles;
+	TH1* invM_eeg;
 	TH1* invM_2e;
 	TH1* missM;
 	TH1* expectProt;
@@ -109,6 +110,9 @@ private:
 	TH1* nIter_converged;
 	TH1* nIter_all;
 	TH1* fitStatus;
+
+	TH1* q2;
+	TH1* q2_cut;
 
 protected:
 	// some general constants
