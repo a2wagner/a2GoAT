@@ -51,6 +51,8 @@ set(ANT_PHYSICS
     analysis/TestAPLCON.cc
     analysis/DataOverview.h
     analysis/DataOverview.cc
+    analysis/SaschaPhysics.h
+    analysis/SaschaPhysics.cc
     )
 
 
