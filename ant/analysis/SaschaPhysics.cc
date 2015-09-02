@@ -130,6 +130,35 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
                                       "", particlecount_bins);
     }
 
+    // prepare invM histograms for different q2 ranges
+    im_q2.push_back(im_q2_0_50);
+    im_q2.push_back(im_q2_50_100);
+    im_q2.push_back(im_q2_100_150);
+    im_q2.push_back(im_q2_150_200);
+    im_q2.push_back(im_q2_200_250);
+    im_q2.push_back(im_q2_250_300);
+    im_q2.push_back(im_q2_300_350);
+    im_q2.push_back(im_q2_350_400);
+    im_q2.push_back(im_q2_400_450);
+    im_q2.push_back(im_q2_450_500);
+    im_q2.push_back(im_q2_500_550);
+    im_q2.push_back(im_q2_550_600);
+    im_q2.push_back(im_q2_600_650);
+    im_q2.push_back(im_q2_650_700);
+    im_q2.push_back(im_q2_700_750);
+    im_q2.push_back(im_q2_750_800);
+    im_q2.push_back(im_q2_800_850);
+    im_q2.push_back(im_q2_850_900);
+    double start_range = 0.;
+    for (auto& h : im_q2) {
+        char title[40];
+        char name[20];
+        sprintf(name, "im_q2_%d_%d", int(start_range), int(start_range + im_q2_mev_steps));
+        sprintf(title, "IM %d MeV < q^{2} < %d MeV", int(start_range), int(start_range + im_q2_mev_steps));
+        h = HistFac.makeTH1D(title, "IM [MeV]", "#", im_bins, name);
+        start_range += im_q2_mev_steps;
+    }
+
     // setup fitter for Dalitz decay
 
     fitter.LinkVariable("Beam", beam.Link(), beam.LinkSigma());
@@ -547,6 +576,10 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         // Cut on chi^2
         if (result.ChiSquare > 10.)
             return;
+
+        // fill the invM histograms for different q2 ranges
+        if (q2_after < im_q2.size()*im_q2_mev_steps)
+            im_q2.at(static_cast<int>(q2_after/im_q2_mev_steps))->Fill(etap_fit.M());
 
         im_cut->Fill(etap.M());
         FillIM(im_fit_cut, final_state);

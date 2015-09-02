@@ -177,6 +177,28 @@ protected:
     TH2D* crystals_vs_ecl_charged_cut;
     TH2D* crystals_vs_ecl_uncharged_cut;
 
+    // invM spectra for different q^2 ranges
+    static constexpr double im_q2_mev_steps = 50.;
+    std::vector<TH1D*> im_q2;
+    TH1D* im_q2_0_50;
+    TH1D* im_q2_50_100;
+    TH1D* im_q2_100_150;
+    TH1D* im_q2_150_200;
+    TH1D* im_q2_200_250;
+    TH1D* im_q2_250_300;
+    TH1D* im_q2_300_350;
+    TH1D* im_q2_350_400;
+    TH1D* im_q2_400_450;
+    TH1D* im_q2_450_500;
+    TH1D* im_q2_500_550;
+    TH1D* im_q2_550_600;
+    TH1D* im_q2_600_650;
+    TH1D* im_q2_650_700;
+    TH1D* im_q2_700_750;
+    TH1D* im_q2_750_800;
+    TH1D* im_q2_800_850;
+    TH1D* im_q2_850_900;
+
 
     void FillIM(TH1D* h, const std::vector<FitParticle>& final_state);
 
