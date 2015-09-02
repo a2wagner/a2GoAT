@@ -103,6 +103,38 @@ protected:
     TH1D* tagger;
     TH1D* ntagged;
     TH1D* cbesum;
+    // different checks
+    TH2D* lepton_energies;
+    TH2D* lepton_energies_true;
+    TH2D* photon_energy_vs_opening_angle;
+    TH2D* photon_energy_vs_opening_angle_true;
+    TH2D* theta_vs_clusters;
+    TH2D* opening_angle_vs_q2;
+    TH2D* opening_angle_vs_E_high;
+    TH2D* opening_angle_vs_E_low;
+    TH2D* dEvE;
+    TH2D* crystals_vs_ecl_charged;
+    TH2D* crystals_vs_ecl_uncharged;
+    TH2D* crystals_vs_ecl_charged_candidates;
+    TH2D* energy_vs_momentum_z_balance;
+
+    TH1D* opening_angle_leptons;
+    TH1D* opening_angle_leptons_true;
+    TH1D* energy_lepton1;
+    TH1D* energy_lepton1_true;
+    TH1D* energy_lepton2;
+    TH1D* energy_lepton2_true;
+    TH1D* energy_photon;
+    TH1D* energy_photon_true;
+    // proton checks
+    TH1D* proton_energy;
+    TH1D* proton_energy_true;
+    TH1D* proton_energy_fit;
+    TH1D* proton_energy_delta;
+    TH1D* proton_angle_TAPS_expected;
+
+    TH1D* coplanarity;
+    TH1D* missing_mass;
 
     std::map<const ParticleTypeDatabase::Type*, TH1D*> numParticleType;
 
@@ -118,6 +150,13 @@ protected:
 
     TH1D* vertex_z_after;
     TH1D* vertex_z_before;
+
+    TH1D* q2_dist_before;
+    TH1D* q2_dist_after;
+
+    TH1D* coplanarity_fit;
+    TH1D* missing_mass_fit;
+    TH2D* energy_vs_momentum_z_balance_fit;
 
 
     void FillIM(TH1D* h, const std::vector<FitParticle>& final_state);

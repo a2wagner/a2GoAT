@@ -56,12 +56,73 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     const BinSettings iterations_bins(15,0,15);
     const BinSettings im_bins(200,IM-100,IM+100);
     const BinSettings vertex_bins(200,-10,10);
+    const BinSettings theta_bins(720, 0, 180);
+    const BinSettings phi_bins(720, 0, 360);
+    const BinSettings angle_bins(500, 0, 50);
+    const BinSettings energy_range_bins(1600, -1600, 1600);
+    const BinSettings q2_bins(2000, 0, 1000);
+    const BinSettings count_bins(50, 0, 50);
 
     banana = HistFac.makeTH2D("PID Bananas", "Cluster Energy [MeV]", "Veto Energy [MeV]", energy_bins, veto_bins, "pid");
     particles = HistFac.makeTH1D("Identified particles", "Particle Type", "#", particle_bins, "ParticleTypes");
     tagger = HistFac.makeTH1D("Tagger Spectrum", "Photon Beam Energy", "#", tagger_bins, "TaggerSpectrum");
     ntagged = HistFac.makeTH1D("Tagger Hits", "Tagger Hits / event", "#", ntaggerhits_bins, "nTagged");
     cbesum = HistFac.makeTH1D("CB Energy Sum", "E [MeV]", "#", energy_bins, "esum");
+
+    q2_dist_before = HistFac.makeTH1D("q^{2} Distribution before KinFit", "q^{2} [MeV]", "#", q2_bins, "q2_dist_before");
+    q2_dist_after = HistFac.makeTH1D("q^{2} Distribution after KinFit", "q^{2} [MeV]", "#", q2_bins, "q2_dist_after");
+
+    // different checks
+    lepton_energies = HistFac.makeTH2D("Lepton Energies", "E(lepton1) [MeV]", "E(lepton(2) [MeV]",
+                                       energy_bins, energy_bins, "lepton_energies");
+    lepton_energies_true = HistFac.makeTH2D("True Lepton Energies", "E(lepton1)_{true} [MeV]", "E(lepton(2)_{true} [MeV]",
+                                            energy_bins, energy_bins, "lepton_energies_true");
+    photon_energy_vs_opening_angle = HistFac.makeTH2D("Photon energy vs. opening angle", "Opening angle [#circ]",
+                                                      "E_{#gamma} [MeV]", theta_bins, energy_bins,
+                                                      "photon_energy_vs_opening_angle");
+    photon_energy_vs_opening_angle_true = HistFac.makeTH2D("True photon energy vs. opening angle", "Opening angle [#circ]",
+                                                           "E_{#gamma} [MeV]", theta_bins, energy_bins,
+                                                           "photon_energy_vs_opening_angle_true");
+    theta_vs_clusters = HistFac.makeTH2D("Theta vs. #Clusters", "#Clusters", "#vartheta [#circ]",
+                                         particlecount_bins, theta_bins, "theta_vs_clusters");
+    opening_angle_vs_q2 = HistFac.makeTH2D("Opening Angle Leptons vs. q^{2}", "q^{2} [GeV^{2}]", "Opening angle [#circ]",
+                                           q2_bins, theta_bins, "opening_angle_vs_q2");
+    opening_angle_vs_E_high = HistFac.makeTH2D("Opening Angle Leptons vs. E_{high}(Lepton)", "E [MeV]", "Opening angle [#circ]",
+                                               energy_bins, theta_bins, "opening_angle_vs_E_high");
+    opening_angle_vs_E_low = HistFac.makeTH2D("Opening Angle Leptons vs. E_{low}(Lepton)", "E [MeV]", "Opening angle [#circ]",
+                                               energy_bins, theta_bins, "opening_angle_vs_E_low");
+    dEvE = HistFac.makeTH2D("dE vs. E", "E_{Crystals} [MeV]", "dE_{Veto} [MeV]", energy_bins, veto_bins, "dEvE");
+    crystals_vs_ecl_charged = HistFac.makeTH2D("#Crystals vs. Cluster Energy", "Cluster Energy [GeV]", "#Crystals",
+                                               q2_bins, count_bins, "crystals_vs_cluster_energy_charged");
+    crystals_vs_ecl_uncharged = HistFac.makeTH2D("#Crystals vs. Cluster Energy", "Cluster Energy [GeV]", "#Crystals",
+                                                 q2_bins, count_bins, "crystals_vs_cluster_energy_uncharged");
+    crystals_vs_ecl_charged_candidates = HistFac.makeTH2D("#Crystals vs. Cluster Energy (Candidates)",
+                                                          "Cluster Energy [GeV]", "#Crystals",
+                                                          q2_bins, count_bins, "crystals_vs_ecl_charged_candidates");
+    energy_vs_momentum_z_balance = HistFac.makeTH2D("Energy vs. p_{z} balance", "p_{z} [GeV]", "Energy [GeV]",
+                                                   energy_range_bins, energy_range_bins, "energy_vs_momentum_z_balance");
+
+    opening_angle_leptons = HistFac.makeTH1D("Lepton opening angle", "Opening angle [#circ]", "#",
+                                             theta_bins, "opening_angle_leptons");
+    opening_angle_leptons_true = HistFac.makeTH1D("Lepton opening angle true", "Opening angle [#circ]", "#",
+                                                  theta_bins, "opening_angle_leptons_true");
+    energy_lepton1 = HistFac.makeTH1D("Energy 1st lepton", "E [MeV]", "#", energy_bins, "energy_lepton1");
+    energy_lepton1_true = HistFac.makeTH1D("True energy 1st lepton", "E_{true} [MeV]", "#", energy_bins, "energy_lepton1_true");
+    energy_lepton2 = HistFac.makeTH1D("Energy 2nd lepton", "E [MeV]", "#", energy_bins, "energy_lepton2");
+    energy_lepton2_true = HistFac.makeTH1D("True energy 2nd lepton", "E_{true} [MeV]", "#", energy_bins, "energy_lepton2_true");
+    energy_photon = HistFac.makeTH1D("Energy photon", "E [MeV]", "#", energy_bins, "energy_photon");
+    energy_photon_true = HistFac.makeTH1D("True energy photon", "E_{true} [MeV]", "#", energy_bins, "energy_photon_true");
+
+    proton_energy = HistFac.makeTH1D("Energy proton", "E [MeV]", "#", energy_bins, "proton_energy");
+    proton_energy_true = HistFac.makeTH1D("Energy proton true", "E [MeV]", "#", energy_bins, "proton_energy_true");
+    proton_energy_fit = HistFac.makeTH1D("Energy proton fitted", "E [MeV]", "#", energy_bins, "proton_energy_fit");
+    proton_energy_delta = HistFac.makeTH1D("#DeltaE_{proton} reconstructed - fitted", "E [MeV]", "#", energy_range_bins,
+                                           "proton_energy_delta");
+    proton_angle_TAPS_expected = HistFac.makeTH1D("Opening Angle reconstr. Cluster_{TAPS} - expected proton",
+                                                  "opening angle [#circ]", "#", angle_bins, "proton_angle_TAPS_expected");
+
+    coplanarity = HistFac.makeTH1D("Coplanarity #eta' proton", "Coplanarity [#circ]", "#", phi_bins, "coplanarity");
+    missing_mass = HistFac.makeTH1D("Missing Mass Proton", "m_{miss} [MeV]", "#", energy_bins, "missing_mass");
 
     for( auto& t : ParticleTypeDatabase::DetectableTypes() ) {
         numParticleType[t]= HistFac.makeTH1D("Number of " + t->PrintName(),
@@ -144,7 +205,7 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     static_assert(!(includeIMconstraint && includeVertexFit), "Do not enable Vertex and IM Fit at the same time");
 
     // make fitter histograms
-    chisquare   = HistFac.makeTH1D("ChiSqare","ChiSquare","#",chisquare_bins,"chisquare");
+    chisquare   = HistFac.makeTH1D("ChiSquare","#chi^{2}","#",chisquare_bins,"chisquare");
     probability = HistFac.makeTH1D("Probability","Probability","#",probability_bins,"probability");
     iterations = HistFac.makeTH1D("Number of iterations","Iterations","#",iterations_bins,"iterations");
 
@@ -167,6 +228,12 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
 
     vertex_z_before =  HistFac.makeTH1D("Vertex Z Before","v_z / cm","#",vertex_bins,"vertex_z_before");
     vertex_z_after =  HistFac.makeTH1D("Vertex Z After","v_z / cm","#",vertex_bins,"vertex_z_after");
+
+    coplanarity_fit = HistFac.makeTH1D("Coplanarity #eta' proton fitted", "Coplanarity [#circ]", "#", phi_bins,
+                                        "coplanarity_fit");
+    missing_mass_fit = HistFac.makeTH1D("Missing Mass Proton fitted", "m_{miss} [MeV]", "#", energy_bins, "missing_mass_fit");
+    energy_vs_momentum_z_balance_fit = HistFac.makeTH2D("Energy vs. p_{z} balance fitted", "p_{z} [GeV]", "Energy [GeV]",
+                                                         energy_range_bins, energy_range_bins, "energy_vs_momentum_z_balance_fit");
 
     APLCON::Fit_Settings_t settings = fitter.GetSettings();
     settings.MaxIterations = 50;
@@ -240,6 +307,22 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         if (ne != 2 || ng != 1 || np != 1)
             continue;
 
+        // check theta distribution in dependence of the number of clusters
+        TrackPtr tr;
+        bool highVeto = false;
+        for (const auto& p : particles) {
+            tr = p.Tracks().front();
+            if (tr->VetoEnergy() > 3.)
+                highVeto = true;
+            theta_vs_clusters->Fill(nParticles, p.Theta()*TMath::RadToDeg());
+            crystals_vs_ecl_charged_candidates->Fill(tr->ClusterEnergy(), tr->ClusterSize());
+            dEvE->Fill(tr->ClusterEnergy(), tr->VetoEnergy());
+            if (p.Type().Charged())
+                crystals_vs_ecl_charged->Fill(tr->ClusterEnergy(), tr->ClusterSize());
+            else
+                crystals_vs_ecl_uncharged->Fill(tr->ClusterEnergy(), tr->ClusterSize());
+        }
+
 //        cout << "We have the right 4 particles\nNow sort them, order before:\n";
 //        for (const auto& p : particles)
 //            cout << p.Type() << endl;
@@ -257,12 +340,89 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
                 break;
             }
 
+        const TLorentzVector target(0., 0., 0., ParticleTypeDatabase::Proton.Mass());
+        TLorentzVector balanceP4 = taggerhit->PhotonBeam() + target;
+        for (const auto& p : particles)
+            balanceP4 -= p;
+        energy_vs_momentum_z_balance->Fill(balanceP4.Pz(), balanceP4.E());
+
+        TLorentzVector proton = particles.back();
+        TLorentzVector etap(0., 0., 0., 0.);
+        for (auto it = particles.begin(); it != particles.end()-1; ++it)
+            etap += *it;
+        const double copl = abs(etap.Phi() - particles.back().Phi())*TMath::RadToDeg();
+        coplanarity->Fill(copl);
+        TLorentzVector missingProton = taggerhit->PhotonBeam() + target - etap;
+        double missM = missingProton.M();
+        missing_mass->Fill(missM);
+
+        proton_energy->Fill(proton.T());
+        double openAngle_p_TAPS_expected = proton.Angle(missingProton.Vect())*TMath::RadToDeg();
+        proton_angle_TAPS_expected->Fill(openAngle_p_TAPS_expected);
+
         //std::copy(particles.begin(), particles.end(), final_state);
 //        std::transform(particles.begin(), particles.end(), final_state.begin(),
 //                       [](Particle& p) -> double { return FitParticle().SetFromVector(p); });
         auto it = final_state.begin();
         for (const auto& p : particles)
             (it++)->SetFromVector(p);
+
+        if (!(event.MCTrue().Particles().GetAll().empty())) {
+            // use the first particle in the particles vector as a placeholder
+            Particle ePlus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+            Particle eMinus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+            Particle photon_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+            Particle proton_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+            for (const auto& p : event.MCTrue().Particles().GetAll()) {
+                if (p->Type() == ParticleTypeDatabase::Photon)
+                    photon_true = Particle(*p);
+                else if (p->Type() == ParticleTypeDatabase::eMinus)
+                    eMinus_true = Particle(*p);
+                else if (p->Type() == ParticleTypeDatabase::ePlus)
+                    ePlus_true = Particle(*p);
+                else if (p->Type() == ParticleTypeDatabase::Proton)
+                    proton_true = Particle(*p);
+            }
+
+            double lepton_open_angle_true = ePlus_true.Angle(eMinus_true.Vect())*TMath::RadToDeg();
+            double en_lep1_true, en_lep2_true;
+            if (eMinus_true.Ek() > ePlus_true.Ek()) {
+                en_lep1_true = eMinus_true.Ek();
+                en_lep2_true = ePlus_true.Ek();
+            } else {
+                en_lep1_true = ePlus_true.Ek();
+                en_lep2_true = eMinus_true.Ek();
+            }
+            if ((ePlus_true.Type() == ParticleTypeDatabase::eCharged)
+                    && (eMinus_true.Type() == ParticleTypeDatabase::eCharged)) {
+                opening_angle_leptons_true->Fill(lepton_open_angle_true);
+                photon_energy_vs_opening_angle_true->Fill(lepton_open_angle_true, photon_true.Ek());
+                lepton_energies_true->Fill(en_lep1_true, en_lep2_true);
+                energy_lepton1_true->Fill(en_lep1_true);
+                energy_lepton2_true->Fill(en_lep2_true);
+            }
+            energy_photon_true->Fill(photon_true.Ek());
+            proton_energy_true->Fill(proton_true.Ek());
+        }
+
+        double q2_before = (particles[0] + particles[1]).M();
+        double lepton_open_angle = particles[0].Angle(particles[1].Vect())*TMath::RadToDeg();
+        double en_lep1 = particles[0].T();
+        double en_lep2 = particles[1].T();
+        if (en_lep1 < en_lep2) {
+            en_lep1 = en_lep2;
+            en_lep2 = particles[0].T();
+        }
+        opening_angle_leptons->Fill(lepton_open_angle);
+        lepton_energies->Fill(en_lep1, en_lep2);
+        energy_lepton1->Fill(en_lep1);
+        energy_lepton2->Fill(en_lep2);
+        energy_photon->Fill(particles[2].E());
+        photon_energy_vs_opening_angle->Fill(lepton_open_angle, particles[2].E());
+        opening_angle_vs_q2->Fill(q2_before, lepton_open_angle);
+        opening_angle_vs_E_high->Fill(en_lep1 > en_lep2 ? en_lep1 : en_lep2, lepton_open_angle);
+        opening_angle_vs_E_low->Fill(en_lep1 < en_lep2 ? en_lep1 : en_lep2, lepton_open_angle);
+        q2_dist_before->Fill(q2_before);
 
         // set proton energy sigma to zero to indicate it's unmeasured
         final_state[3].Ek_Sigma = 0;
@@ -309,6 +469,29 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         }
 
         FillIM(im_fit, final_state);
+
+        double q2_after = (FitParticle::Make(final_state[0], ParticleTypeDatabase::eMinus.Mass())
+                + FitParticle::Make(final_state[1], ParticleTypeDatabase::eMinus.Mass())).M();
+        q2_dist_after->Fill(q2_after);
+
+        TLorentzVector balanceP4_fit = target + FitParticle::Make(beam, ParticleTypeDatabase::Photon.Mass());
+        // create the fitted final state particles
+        TLorentzVector proton_fit = FitParticle::Make(final_state[3], ParticleTypeDatabase::Proton.Mass());
+        TLorentzVector etap_fit(0., 0., 0., 0.);
+        etap_fit += FitParticle::Make(final_state[0], ParticleTypeDatabase::eMinus.Mass());
+        etap_fit += FitParticle::Make(final_state[1], ParticleTypeDatabase::eMinus.Mass());
+        etap_fit += FitParticle::Make(final_state[2], ParticleTypeDatabase::Photon.Mass());
+        balanceP4_fit -= etap_fit;
+        balanceP4_fit -= proton_fit;
+        energy_vs_momentum_z_balance_fit->Fill(balanceP4_fit.Pz(), balanceP4_fit.E());
+
+        const double copl_fit = abs(etap_fit.Phi() - particles.back().Phi())*TMath::RadToDeg();
+        coplanarity_fit->Fill(copl_fit);
+        TLorentzVector missingProtonFit = target + FitParticle::Make(beam, ParticleTypeDatabase::Photon.Mass()) - etap_fit;
+        missing_mass_fit->Fill(missingProtonFit.M());
+
+        proton_energy_fit->Fill(proton_fit.T());
+        proton_energy_delta->Fill(proton.T() - proton_fit.T());
     }
 }
 
