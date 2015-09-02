@@ -345,25 +345,18 @@ void ant::analysis::SaschaPhysics::GetParticles(const ant::Event& event, particl
             nParticlesCB++;
             //if (track->VetoEnergy() > 0.)  // PID entry? --> charged
             if (track->Detector() & detector_t::PID)
-                particles.push_back(Particle(ParticleTypeDatabase::eMinus,
-                                             track->ClusterEnergy(),
-                                             track->Theta(), track->Phi()));
+                particles.push_back(Particle(ParticleTypeDatabase::eMinus, track));
             else
-                particles.push_back(Particle(ParticleTypeDatabase::Photon,
-                                             track->ClusterEnergy(),
-                                             track->Theta(), track->Phi()));
+                particles.push_back(Particle(ParticleTypeDatabase::Photon, track));
         } else if (track->Detector() & ant::detector_t::BaF2 || track->Detector() & ant::detector_t::PbWO4) {
             nParticlesTAPS++;
             //if (track->VetoEnergy() > 0.)  // Veto entry? --> charged
             if (track->Detector() & detector_t::Veto)
-                particles.push_back(Particle(ParticleTypeDatabase::Proton,
-                                             track->ClusterEnergy(),
-                                             track->Theta(), track->Phi()));
+                particles.push_back(Particle(ParticleTypeDatabase::Proton, track));
             else
-                particles.push_back(Particle(ParticleTypeDatabase::Photon,
-                                             track->ClusterEnergy(),
-                                             track->Theta(), track->Phi()));
+                particles.push_back(Particle(ParticleTypeDatabase::Photon, track));
         }
+    //std::cout << track->Detector() << std::endl;
     }
     nParticles = nParticlesCB + nParticlesTAPS;
 
