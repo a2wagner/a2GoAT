@@ -90,6 +90,7 @@ protected:
 
     // choose here what you want to do
     // please also provide GoAT trees with matching MC true information...
+    static constexpr bool includeCoplanarityConstraint = true;
     static constexpr bool includeIMconstraint = false;
     static constexpr bool includeVertexFit = true;
     static constexpr size_t nFinalState = 4;

@@ -158,6 +158,18 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     };
     fitter.AddConstraint("EnergyMomentumBalance", all_names, EnergyMomentumBalance);
 
+    // Constraint: Coplanarity between eta' and recoil proton
+    auto CoplanarityConstraint = [] (const vector<vector<double>>& particles) -> double
+    {
+        TLorentzVector etap = FitParticle::Make(particles[1], ParticleTypeDatabase::eMinus.Mass());
+        etap += FitParticle::Make(particles[2], ParticleTypeDatabase::eMinus.Mass());
+        etap += FitParticle::Make(particles[3], ParticleTypeDatabase::Photon.Mass());
+        TLorentzVector proton = FitParticle::Make(particles[4], ParticleTypeDatabase::Proton.Mass());
+        return abs(etap.Phi() - proton.Phi())*TMath::RadToDeg() - 180.;
+    };
+    if (includeCoplanarityConstraint)
+        fitter.AddConstraint("CoplanarityConstraint", all_names, CoplanarityConstraint);
+
     // Constraint: Invariant mass of nPhotons equals constant IM,
     // make lambda catch also this with [&] specification
     auto RequireIM = [&] (const vector<vector<double>>& particles) -> double
