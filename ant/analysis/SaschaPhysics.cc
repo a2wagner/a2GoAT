@@ -247,8 +247,36 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     energy_vs_momentum_z_balance_fit = HistFac.makeTH2D("Energy vs. p_{z} balance fitted", "p_{z} [GeV]", "Energy [GeV]",
                                                          energy_range_bins, energy_range_bins, "energy_vs_momentum_z_balance_fit");
 
+    // histograms after cuts
+    im_cut = HistFac.makeTH1D("IM "+fs.str()+" after cuts","IM","#",im_bins,"im_cut");
+    im_fit_cut = HistFac.makeTH1D("IM "+fs.str()+" fit after cuts","IM","#",im_bins,"im_fit_cut");
+    q2_dist_cut = HistFac.makeTH1D("q^{2} Distribution after Cuts", "q^{2} [GeV]", "#", q2_bins, "q2_dist_cut");
+    q2_dist_fit_cut = HistFac.makeTH1D("q^{2} Distribution fit after Cuts", "q^{2} [GeV]", "#", q2_bins, "q2_dist_fit_cut");
+    coplanarity_cut = HistFac.makeTH1D("Coplanarity #eta' proton after Cuts", "Coplanarity [#circ]", "#", phi_bins,
+                                       "coplanarity_cut");
+    coplanarity_fit_cut = HistFac.makeTH1D("Coplanarity #eta' proton fit after Cuts", "Coplanarity [#circ]", "#", phi_bins,
+                                           "coplanarity_fit_cut");
+    missing_mass_cut = HistFac.makeTH1D("Missing Mass Proton after Cuts", "m_{miss} [MeV]", "#", energy_bins, "missing_mass_cut");
+    missing_mass_fit_cut = HistFac.makeTH1D("Missing Mass Proton fit after Cuts", "m_{miss} [MeV]", "#", energy_bins,
+                                    "missing_mass_fit_cut");
+    proton_angle_TAPS_expected_cut = HistFac.makeTH1D("Opening Angle reconstr. Cluster_{TAPS} - expected proton after Cuts",
+                                                      "opening angle [#circ]", "#", angle_bins, "proton_angle_TAPS_expected_cut");
+    energy_vs_momentum_z_balance_cut = HistFac.makeTH2D("Energy vs. p_{z} balance after Ctus", "p_{z} [GeV]", "Energy [GeV]",
+                                                        energy_range_bins, energy_range_bins, "energy_vs_momentum_z_balance_cut");
+    energy_vs_momentum_z_balance_fit_cut = HistFac.makeTH2D("Energy vs. p_{z} balance fit after Ctus", "p_{z} [GeV]",
+                                                            "Energy [GeV]", energy_range_bins, energy_range_bins,
+                                                            "energy_vs_momentum_z_balance_fit_cut");
+
+    dEvE_cut = HistFac.makeTH2D("dE vs. E Cut", "E_{Crystals} [MeV]", "dE_{Veto} [MeV]", energy_bins, veto_bins, "dEvE_cut");
+    crystals_vs_ecl_cut = HistFac.makeTH2D("#Crystals vs. Cluster Energy Cut", "Cluster Energy [GeV]", "#Crystals",
+                                           q2_bins, count_bins, "crystals_vs_cluster_energy_cut");
+    crystals_vs_ecl_charged_cut = HistFac.makeTH2D("#Crystals vs. Cluster Energy Cut", "Cluster Energy [GeV]", "#Crystals",
+                                                   q2_bins, count_bins, "crystals_vs_cluster_energy_charged_cut");
+    crystals_vs_ecl_uncharged_cut = HistFac.makeTH2D("#Crystals vs. Cluster Energy Cut", "Cluster Energy [GeV]", "#Crystals",
+                                                     q2_bins, count_bins, "crystals_vs_cluster_energy_uncharged_cut");
+
     APLCON::Fit_Settings_t settings = fitter.GetSettings();
-    settings.MaxIterations = 50;
+    settings.MaxIterations = 8;
     fitter.SetSettings(settings);
 
     cout.precision(3);
@@ -456,6 +484,17 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 
 //        FillIM(im_smeared, photons);
 
+        // Cut on missing mass of the proton
+        if (missM < 900. && missM > 990.)
+            continue;
+        // Cut on Veto energy
+        if (highVeto)
+            continue;
+        // Cut on opening angle between TAPS cluster and expected proton
+        // (mainly for suppressing bad events which will be unnecassarily fitted, affects only a few background events)
+        if (openAngle_p_TAPS_expected > 5.)
+            continue;
+
         // let APLCON do the work
         const APLCON::Result_t& result = fitter.DoFit();
 
@@ -504,6 +543,32 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 
         proton_energy_fit->Fill(proton_fit.T());
         proton_energy_delta->Fill(proton.T() - proton_fit.T());
+
+        // Cut on chi^2
+        if (result.ChiSquare > 10.)
+            return;
+
+        im_cut->Fill(etap.M());
+        FillIM(im_fit_cut, final_state);
+        q2_dist_cut->Fill(q2_before);
+        q2_dist_fit_cut->Fill(q2_after);
+        coplanarity_cut->Fill(copl);
+        missing_mass_cut->Fill(missM);
+        missing_mass_fit_cut->Fill(missingProtonFit.M());
+        coplanarity_fit_cut->Fill(copl_fit);
+        proton_angle_TAPS_expected_cut->Fill(openAngle_p_TAPS_expected);
+        energy_vs_momentum_z_balance_cut->Fill(balanceP4.Pz(), balanceP4.E());
+        energy_vs_momentum_z_balance_fit_cut->Fill(balanceP4_fit.Pz(), balanceP4_fit.E());
+
+        for (const auto& p : particles) {
+            tr = p.Tracks().front();
+            crystals_vs_ecl_cut->Fill(tr->ClusterEnergy(), tr->ClusterSize());
+            dEvE_cut->Fill(tr->ClusterEnergy(), tr->VetoEnergy());
+            if (p.Type().Charged())
+                crystals_vs_ecl_charged_cut->Fill(tr->ClusterEnergy(), tr->ClusterSize());
+            else
+                crystals_vs_ecl_uncharged_cut->Fill(tr->ClusterEnergy(), tr->ClusterSize());
+        }
     }
 }
 

@@ -159,6 +159,24 @@ protected:
     TH1D* missing_mass_fit;
     TH2D* energy_vs_momentum_z_balance_fit;
 
+    // histograms after applying cuts
+    TH1D* im_cut;
+    TH1D* im_fit_cut;
+    TH1D* q2_dist_cut;
+    TH1D* q2_dist_fit_cut;
+    TH1D* coplanarity_cut;
+    TH1D* coplanarity_fit_cut;
+    TH1D* proton_angle_TAPS_expected_cut;
+    TH1D* missing_mass_cut;
+    TH1D* missing_mass_fit_cut;
+    TH2D* energy_vs_momentum_z_balance_cut;
+    TH2D* energy_vs_momentum_z_balance_fit_cut;
+
+    TH2D* dEvE_cut;
+    TH2D* crystals_vs_ecl_cut;
+    TH2D* crystals_vs_ecl_charged_cut;
+    TH2D* crystals_vs_ecl_uncharged_cut;
+
 
     void FillIM(TH1D* h, const std::vector<FitParticle>& final_state);
 
