@@ -5,6 +5,7 @@
 
 #include <APLCON.hpp>
 #include "plot/Histogram.h"
+#include "base/interval.h"
 
 
 #include <vector>
@@ -83,6 +84,69 @@ protected:
     {
         return std::find(vec.begin(), vec.end(), &val) != vec.end();
     }
+
+    // Class to group histograms
+    class HistList {
+    protected:
+        static constexpr unsigned int max_hist_per_canvas = 20;
+
+    public:
+        std::string pref;  // prefix to label whole group of histograms
+        mutable std::map<std::string, TH1*> h;  // container for histograms by name (without prefix)
+        std::map<std::string, std::string> h_title;  // container for histogram titles by name (without prefix)
+
+        // Add 1D histogram
+        void AddHistogram(const std::string& name,      // short specifier for histogram
+                          const std::string& title,     // descriptive title for histogram
+                          const std::string& x_label,   // x axis label
+                          const std::string& y_label,   // y axis label
+                          const int x_bins_n,           // number of bins in x
+                          const double x_bins_low,      // lower bound of x axis
+                          const double x_bins_up        // upper bound of x axis
+                          );
+        void AddHistogram(const std::string &name,
+                          const std::string &title,
+                          const std::string &x_label,
+                          const std::string &y_label,
+                          const BinSettings &bins);
+
+        // Add 2D histogram
+        void AddHistogram(const std::string& name,      // short specifier for histogram
+                          const std::string& title,     // descriptive title for histogram
+                          const std::string& x_label,   // x axis label
+                          const std::string& y_label,   // y axis label
+                          const int x_bins_n,           // number of bins in x
+                          const double x_bins_low,      // lower bound of x axis
+                          const double x_bins_up,       // upper bound of y axis
+                          const int y_bins_n,           // number of bins in y
+                          const double y_bins_low,      // lower bound of y axis
+                          const double y_bins_up        // upper bound of y axis
+                          );
+        void AddHistogram(const string &name,
+                          const string &title,
+                          const string &x_label,
+                          const string &y_label,
+                          const BinSettings &x_bins,
+                          const BinSettings &y_bins);
+
+        HistList(const std::string& prefix, const mev_t energy_scale = 1000.0);
+
+        void Draw();
+        void AddScaled(const HistList& h2, const Double_t f = 1.);
+
+        HistList& operator*= (const Double_t factor);
+        HistList operator= (const HistList& other);
+
+        TH1* operator[] (const std::string& key)
+        {
+            return h[key];
+        }
+
+        const TH1* operator[] (const std::string& key) const
+        {
+            return h[key];
+        }
+    };
 
     typedef std::vector<ant::Particle> particle_vector;
 
@@ -213,7 +277,7 @@ protected:
 
 
 public:
-    SaschaPhysics(const mev_t energy_scale=1000.0);
+    SaschaPhysics(const mev_t energy_scale = 1000.0);
     virtual ~SaschaPhysics() {}
     void ProcessEvent(const Event &event);
     void Finish();

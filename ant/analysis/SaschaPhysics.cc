@@ -39,6 +39,136 @@ void analysis::SaschaPhysics::FillIM(TH1D *h, const std::vector<analysis::Sascha
     h->Fill(sum.M());
 }
 
+void analysis::SaschaPhysics::HistList::AddHistogram(const string &name,
+                                                     const string &title,
+                                                     const string &x_label,
+                                                     const string &y_label,
+                                                     const int x_bins_n,
+                                                     const double x_bins_low,
+                                                     const double x_bins_up)
+{
+    // setup one dimensional histogram TH1D
+    h_title[name] = title;
+    h[name] = HistogramFactory::Default().Make1D(
+                title,
+                x_label,
+                y_label,
+                BinSettings(x_bins_n, x_bins_low, x_bins_up),
+                pref+name);
+}
+
+void analysis::SaschaPhysics::HistList::AddHistogram(const string &name,
+                                                     const string &title,
+                                                     const string &x_label,
+                                                     const string &y_label,
+                                                     const BinSettings &bins)
+{
+    // setup one dimensional histogram TH1D
+    h_title[name] = title;
+    h[name] = HistogramFactory::Default().Make1D(
+                title,
+                x_label,
+                y_label,
+                bins,
+                pref+name);
+}
+
+void analysis::SaschaPhysics::HistList::AddHistogram(const string &name,
+                                                     const string &title,
+                                                     const string &x_label,
+                                                     const string &y_label,
+                                                     const int x_bins_n,
+                                                     const double x_bins_low,
+                                                     const double x_bins_up,
+                                                     const int y_bins_n,
+                                                     const double y_bins_low,
+                                                     const double y_bins_up)
+{
+    // setup two dimensional histogram TH2D
+    h_title[name] = title;
+    h[name] = HistogramFactory::Default().Make2D(
+                title,
+                x_label,
+                y_label,
+                BinSettings(x_bins_n, x_bins_low, x_bins_up),
+                BinSettings(y_bins_n, y_bins_low, y_bins_up),
+                pref+name);
+}
+
+void analysis::SaschaPhysics::HistList::AddHistogram(const string &name,
+                                                     const string &title,
+                                                     const string &x_label,
+                                                     const string &y_label,
+                                                     const BinSettings &x_bins,
+                                                     const BinSettings &y_bins)
+{
+    // setup two dimensional histogram TH2D
+    h_title[name] = title;
+    h[name] = HistogramFactory::Default().Make2D(
+                title,
+                x_label,
+                y_label,
+                x_bins,
+                y_bins,
+                pref+name);
+}
+
+void analysis::SaschaPhysics::HistList::Draw()
+{
+    if (!h.size())
+        return;
+
+    std::vector<canvas*> cv;
+    size_t n = h.size() / max_hist_per_canvas;
+    if (h.size() % max_hist_per_canvas)
+        n++;
+    cv.resize(n);
+
+    size_t i = 0, j;
+    auto it = h.begin();
+    for (auto& c : cv) {
+        c = new canvas("SaschaPhysics: Overview " + pref + std::to_string(++i));
+        j = 0;
+        while (j++ < max_hist_per_canvas && ++it != h.end()) {
+            TH2D* h2 = dynamic_cast<TH2D*>(it->second);
+            if (h2 != nullptr)
+                *c << drawoption("colz");
+            *c << it->second;
+        }
+        *c << endc;
+    }
+}
+
+analysis::SaschaPhysics::HistList &analysis::SaschaPhysics::HistList::operator*=(const Double_t factor)
+{
+    for (auto i : h)
+        i.second->Scale(factor);
+
+    return *this;
+}
+
+analysis::SaschaPhysics::HistList analysis::SaschaPhysics::HistList::operator=(const analysis::SaschaPhysics::HistList &other)
+{
+    for (auto i : h) {
+        TH1* h = i.second;
+        h->Reset();
+        h->Add(other[i.first]);
+    }
+
+    return *this;
+}
+
+void analysis::SaschaPhysics::HistList::AddScaled(const analysis::SaschaPhysics::HistList &h2, const Double_t f)
+{
+    for (auto i : h)
+        i.second->Add(h2.h.at(i.first), f);
+}
+
+analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t energy_scale)
+{
+    pref = prefix + '_';
+}
+
 ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     Physics("SaschaPhysics"),
     fitter("SaschaPhysics"),
