@@ -148,6 +148,14 @@ protected:
         }
     };
 
+    HistList prompt;
+    HistList random;
+    HistList diff;
+
+    interval<double> prompt_window;
+    interval<double> random_window1;
+    interval<double> random_window2;
+
     typedef std::vector<ant::Particle> particle_vector;
 
     const map<short, string> component = {{0, "Energy"}, {1, "Theta"}, {2, "Phi"}};
@@ -158,113 +166,25 @@ protected:
     static constexpr bool includeIMconstraint = false;
     static constexpr bool includeVertexFit = true;
     static constexpr size_t nFinalState = 4;
-    const double IM = ParticleTypeDatabase::EtaPrime.Mass();
-
+    //const double IM = ParticleTypeDatabase::EtaPrime.Mass();
+    static constexpr double IM = 957.78;
 
     size_t nParticles, nParticlesCB, nParticlesTAPS;
 
-    TH2D* banana;
-    TH1D* particles;
-    TH1D* tagger;
-    TH1D* ntagged;
-    TH1D* cbesum;
-    // different checks
-    TH2D* lepton_energies;
-    TH2D* lepton_energies_true;
-    TH2D* photon_energy_vs_opening_angle;
-    TH2D* photon_energy_vs_opening_angle_true;
-    TH2D* theta_vs_clusters;
-    TH2D* opening_angle_vs_q2;
-    TH2D* opening_angle_vs_E_high;
-    TH2D* opening_angle_vs_E_low;
-    TH2D* dEvE;
-    TH2D* crystals_vs_ecl_charged;
-    TH2D* crystals_vs_ecl_uncharged;
-    TH2D* crystals_vs_ecl_charged_candidates;
-    TH2D* energy_vs_momentum_z_balance;
-
-    TH1D* opening_angle_leptons;
-    TH1D* opening_angle_leptons_true;
-    TH1D* energy_lepton1;
-    TH1D* energy_lepton1_true;
-    TH1D* energy_lepton2;
-    TH1D* energy_lepton2_true;
-    TH1D* energy_photon;
-    TH1D* energy_photon_true;
-    // proton checks
-    TH1D* proton_energy;
-    TH1D* proton_energy_true;
-    TH1D* proton_energy_fit;
-    TH1D* proton_energy_delta;
-    TH1D* proton_angle_TAPS_expected;
-
-    TH1D* coplanarity;
-    TH1D* missing_mass;
-
     std::map<const ParticleTypeDatabase::Type*, TH1D*> numParticleType;
 
-    TH1D* chisquare;
-    TH1D* probability;
-    TH1D* iterations;
-    std::map<std::string, TH1D*> pulls;
-
-
-    TH1D* im_true;
-    TH1D* im_smeared;
-    TH1D* im_fit;
-
-    TH1D* vertex_z_after;
-    TH1D* vertex_z_before;
-
-    TH1D* q2_dist_before;
-    TH1D* q2_dist_after;
-
-    TH1D* coplanarity_fit;
-    TH1D* missing_mass_fit;
-    TH2D* energy_vs_momentum_z_balance_fit;
-
-    // histograms after applying cuts
-    TH1D* im_cut;
-    TH1D* im_fit_cut;
-    TH1D* q2_dist_cut;
-    TH1D* q2_dist_fit_cut;
-    TH1D* coplanarity_cut;
-    TH1D* coplanarity_fit_cut;
-    TH1D* proton_angle_TAPS_expected_cut;
-    TH1D* missing_mass_cut;
-    TH1D* missing_mass_fit_cut;
-    TH2D* energy_vs_momentum_z_balance_cut;
-    TH2D* energy_vs_momentum_z_balance_fit_cut;
-
-    TH2D* dEvE_cut;
-    TH2D* crystals_vs_ecl_cut;
-    TH2D* crystals_vs_ecl_charged_cut;
-    TH2D* crystals_vs_ecl_uncharged_cut;
+    std::map<std::string, TH1*> pulls_prompt;
+    std::map<std::string, TH1*> pulls_random;
+    std::map<std::string, TH1*> pulls_diff;
 
     // invM spectra for different q^2 ranges
     static constexpr double im_q2_mev_steps = 50.;
-    std::vector<TH1D*> im_q2;
-    TH1D* im_q2_0_50;
-    TH1D* im_q2_50_100;
-    TH1D* im_q2_100_150;
-    TH1D* im_q2_150_200;
-    TH1D* im_q2_200_250;
-    TH1D* im_q2_250_300;
-    TH1D* im_q2_300_350;
-    TH1D* im_q2_350_400;
-    TH1D* im_q2_400_450;
-    TH1D* im_q2_450_500;
-    TH1D* im_q2_500_550;
-    TH1D* im_q2_550_600;
-    TH1D* im_q2_600_650;
-    TH1D* im_q2_650_700;
-    TH1D* im_q2_700_750;
-    TH1D* im_q2_750_800;
-    TH1D* im_q2_800_850;
-    TH1D* im_q2_850_900;
+    static constexpr double im_q2_upper_bound = 900.;
+    std::vector<TH1*> im_q2_prompt;
+    std::vector<TH1*> im_q2_random;
+    std::vector<TH1*> im_q2_diff;
 
-
-    void FillIM(TH1D* h, const std::vector<FitParticle>& final_state);
+    void FillIM(TH1* h, const std::vector<FitParticle>& final_state);
 
     // collect particles
     void GetParticles(const ant::Event& event, particle_vector& particles);
