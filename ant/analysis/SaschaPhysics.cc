@@ -303,9 +303,9 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     prompt("prompt", energy_scale),
     random("random", energy_scale),
     diff("diff", energy_scale),
-    prompt_window(-8, 8),
-    random_window1(-16, 16),
-    random_window2(0, 0),
+    prompt_window(-6, 6),
+    random_window1(-40, -15),
+    random_window2(15, 40),
     fitter("SaschaPhysics"),
     final_state(nFinalState)
 {
