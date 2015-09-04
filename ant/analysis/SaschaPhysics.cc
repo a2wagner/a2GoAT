@@ -129,11 +129,12 @@ void analysis::SaschaPhysics::HistList::Draw()
     for (auto& c : cv) {
         c = new canvas("SaschaPhysics: Overview " + pref + std::to_string(++i));
         j = 0;
-        while (j++ < max_hist_per_canvas && ++it != h.end()) {
+        while (j++ < max_hist_per_canvas && it != h.end()) {
             TH2D* h2 = dynamic_cast<TH2D*>(it->second);
             if (h2 != nullptr)
                 *c << drawoption("colz");
             *c << it->second;
+            ++it;
         }
         *c << endc;
     }
