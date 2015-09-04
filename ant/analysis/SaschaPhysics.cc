@@ -175,7 +175,6 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     const BinSettings veto_bins(1000,0,10);
     const BinSettings particle_bins(10,0,10);
     const BinSettings particlecount_bins(16,0,16);
-    const BinSettings pull_bins(50,-3,3);
     const BinSettings chisquare_bins(100,0,30);
     const BinSettings probability_bins(100,0,1);
     const BinSettings iterations_bins(15,0,15);
@@ -418,6 +417,7 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     static_assert(!(includeIMconstraint && includeVertexFit), "Do not enable Vertex and IM Fit at the same time");
 
     // create pull histograms
+    const BinSettings pull_bins(50,-3,3);
     for (const auto& varname : fitter.VariableNames()) {
         string title(varname);
         size_t pos = title.find("[");
@@ -425,11 +425,11 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
             const string prop = " " + component.at(atoi(&varname.at(pos+1)));
             title.replace(pos, 3, prop);
         }
-        prompt.AddHistogram("pull_" + varname, "Pull " + title, "Pull", "#", BinSettings(50,-3,3));
+        prompt.AddHistogram("pull_" + varname, "Pull " + title, "Pull", "#", pull_bins);
         pulls_prompt[varname] = prompt["pull_" + varname];
-        random.AddHistogram("pull_" + varname, "Pull " + title, "Pull", "#", BinSettings(50,-3,3));
+        random.AddHistogram("pull_" + varname, "Pull " + title, "Pull", "#", pull_bins);
         pulls_random[varname] = random["pull_" + varname];
-        diff.AddHistogram("pull_" + varname, "Pull " + title, "Pull", "#", BinSettings(50,-3,3));
+        diff.AddHistogram("pull_" + varname, "Pull " + title, "Pull", "#", pull_bins);
         pulls_diff[varname] = diff["pull_" + varname];
     }
 
