@@ -165,6 +165,8 @@ Bool_t  GTreeManager::StartFile(const char* inputFileName, const char* outputFil
 
     if(outputFile)
         outputFile->Close();
+    /*  Disable the following part for ant because the output file is specified via a command line argument and hence
+     *  it's not needed to be declared in a config file. The creation of physics_inputFile is not desired!
     outputFile = TFile::Open(outputFileName, "RECREATE");
     if(!outputFile)
     {
@@ -173,6 +175,7 @@ Bool_t  GTreeManager::StartFile(const char* inputFileName, const char* outputFil
     }
     cout << "Created output file " << outputFile->GetName() << "!" << outputFile->GetTitle() << endl;
     TFileCacheWrite*    cache   = new TFileCacheWrite(outputFile, 104857600);
+    */
 
     isWritten   = kFALSE;
     ClearLinkedHistograms();
@@ -182,7 +185,7 @@ Bool_t  GTreeManager::StartFile(const char* inputFileName, const char* outputFil
 
     if(!isWritten)
         Write();
-    cache->Flush();
+    //cache->Flush();
 
     for(Int_t l=0; l<treeList.GetEntries(); l++)
         ((GTree*)treeList[l])->Close();
