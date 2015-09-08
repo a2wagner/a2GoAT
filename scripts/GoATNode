@@ -3,6 +3,7 @@
 #It cannot take arguments, rather it pick up environmental variables 
 #
 #Currently expecting the following to be set up in the submission script.
+#GoAT_EXECUTABLE: GoAT/ant executable which should be used
 #GoAT_MAINDIR:    Top level directory for GoAT analysis package
 #GoAT_CONFIGFILE: Top level GoAT config file
 #GoAT_INPUTFILE:  Input root file
@@ -25,8 +26,8 @@ mkdir -p "${GoAT_OUTPUTDIR}/root"
 LogFile="${GoAT_OUTPUTDIR}/log/${tag}.log"
 
 #Now run GoAT
-echo "goat $GoAT_CONFIGFILE -f $GoAT_INPUTFILE -F $GoAT_OUTPUTFILE &> $LogFile"
-goat $GoAT_CONFIGFILE -f $GoAT_INPUTFILE -F $GoAT_OUTPUTFILE &> $LogFile
+echo "$GoAT_EXECUTABLE $GoAT_CONFIGFILE $GoAT_INPUTFILE $GoAT_OUTPUTFILE &> $LogFile"
+$GoAT_EXECUTABLE $GoAT_CONFIGFILE $GoAT_INPUTFILE $GoAT_OUTPUTFILE &> $LogFile
 
 #list all the files in the output directory                                     
 echo
