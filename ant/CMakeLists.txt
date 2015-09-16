@@ -53,6 +53,8 @@ set(ANT_PHYSICS
     analysis/DataOverview.cc
     analysis/SaschaPhysics.h
     analysis/SaschaPhysics.cc
+    analysis/etap_2g.h
+    analysis/etap_2g.cc
     )
 
 

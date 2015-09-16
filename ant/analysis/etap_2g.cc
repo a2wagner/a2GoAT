@@ -1,0 +1,784 @@
+#include "etap_2g.h"
+#include "Particle.h"
+#include "Track.h"
+#include "plot/root_draw.h"
+#include <string>
+#include "utils/combinatorics.h"
+#include <vector>
+#include <numeric>
+#include <functional>
+#include <APLCON.hpp>
+#include <iomanip>
+
+using namespace std;
+using namespace ant;
+
+TLorentzVector analysis::etap_2g::FitParticle::Make(const std::vector<double>& EkThetaPhi, const Double_t m)
+{
+    const double E = EkThetaPhi[0] + m;
+    const Double_t p = sqrt( E*E - m*m );
+    TVector3 pv(1,0,0);
+    pv.SetMagThetaPhi(p, EkThetaPhi[1], EkThetaPhi[2]);
+    TLorentzVector l(pv, E);
+    return l;
+}
+
+void analysis::etap_2g::FitParticle::Smear()
+{
+}
+
+void analysis::etap_2g::FillIM(TH1 *h, const std::vector<analysis::etap_2g::FitParticle>& final_state)
+{
+    TLorentzVector sum(0,0,0,0);
+    for (auto p = final_state.cbegin(); p != final_state.cend()-1; ++p)
+        sum += FitParticle::Make(*p, ParticleTypeDatabase::Photon.Mass());
+    h->Fill(sum.M());
+}
+
+void analysis::etap_2g::HistList::AddHistogram(const string &name,
+                                                     const string &title,
+                                                     const string &x_label,
+                                                     const string &y_label,
+                                                     const int x_bins_n,
+                                                     const double x_bins_low,
+                                                     const double x_bins_up)
+{
+    // setup one dimensional histogram TH1D
+    h_title[name] = title;
+    h[name] = HistogramFactory::Default().Make1D(
+                title,
+                x_label,
+                y_label,
+                BinSettings(x_bins_n, x_bins_low, x_bins_up),
+                pref+name);
+}
+
+void analysis::etap_2g::HistList::AddHistogram(const string &name,
+                                                     const string &title,
+                                                     const string &x_label,
+                                                     const string &y_label,
+                                                     const BinSettings &bins)
+{
+    // setup one dimensional histogram TH1D
+    h_title[name] = title;
+    h[name] = HistogramFactory::Default().Make1D(
+                title,
+                x_label,
+                y_label,
+                bins,
+                pref+name);
+}
+
+void analysis::etap_2g::HistList::AddHistogram(const string &name,
+                                                     const string &title,
+                                                     const string &x_label,
+                                                     const string &y_label,
+                                                     const int x_bins_n,
+                                                     const double x_bins_low,
+                                                     const double x_bins_up,
+                                                     const int y_bins_n,
+                                                     const double y_bins_low,
+                                                     const double y_bins_up)
+{
+    // setup two dimensional histogram TH2D
+    h_title[name] = title;
+    h[name] = HistogramFactory::Default().Make2D(
+                title,
+                x_label,
+                y_label,
+                BinSettings(x_bins_n, x_bins_low, x_bins_up),
+                BinSettings(y_bins_n, y_bins_low, y_bins_up),
+                pref+name);
+}
+
+void analysis::etap_2g::HistList::AddHistogram(const string &name,
+                                                     const string &title,
+                                                     const string &x_label,
+                                                     const string &y_label,
+                                                     const BinSettings &x_bins,
+                                                     const BinSettings &y_bins)
+{
+    // setup two dimensional histogram TH2D
+    h_title[name] = title;
+    h[name] = HistogramFactory::Default().Make2D(
+                title,
+                x_label,
+                y_label,
+                x_bins,
+                y_bins,
+                pref+name);
+}
+
+void analysis::etap_2g::HistList::Draw()
+{
+    if (!h.size())
+        return;
+
+    std::vector<canvas*> cv;
+    size_t n = h.size() / max_hist_per_canvas;
+    if (h.size() % max_hist_per_canvas)
+        n++;
+    cv.resize(n);
+
+    size_t i = 0, j;
+    auto it = h.begin();
+    for (auto& c : cv) {
+        c = new canvas("etap_2g: Overview " + pref + std::to_string(++i));
+        j = 0;
+        while (j++ < max_hist_per_canvas && it != h.end()) {
+            TH2D* h2 = dynamic_cast<TH2D*>(it->second);
+            if (h2 != nullptr)
+                *c << drawoption("colz");
+            *c << it->second;
+            ++it;
+        }
+        *c << endc;
+    }
+}
+
+analysis::etap_2g::HistList &analysis::etap_2g::HistList::operator*=(const Double_t factor)
+{
+    for (auto i : h)
+        i.second->Scale(factor);
+
+    return *this;
+}
+
+analysis::etap_2g::HistList analysis::etap_2g::HistList::operator=(const analysis::etap_2g::HistList &other)
+{
+    for (auto i : h) {
+        TH1* h = i.second;
+        h->Reset();
+        h->Add(other[i.first]);
+    }
+
+    return *this;
+}
+
+void analysis::etap_2g::HistList::AddScaled(const analysis::etap_2g::HistList &h2, const Double_t f)
+{
+    for (auto i : h)
+        i.second->Add(h2.h.at(i.first), f);
+}
+
+analysis::etap_2g::HistList::HistList(const string &prefix, const mev_t energy_scale)
+{
+    pref = prefix + '_';
+
+    const BinSettings energy_bins(1600,0,energy_scale*1.6);
+    const BinSettings tagger_bins(1500,300,1800);
+    const BinSettings ntaggerhits_bins(15);
+    const BinSettings veto_bins(1000,0,10);
+    const BinSettings particle_bins(10,0,10);
+    const BinSettings particlecount_bins(16,0,16);
+    const BinSettings chisquare_bins(100,0,30);
+    const BinSettings probability_bins(100,0,1);
+    const BinSettings iterations_bins(25,0,25);
+    const BinSettings im_bins(200,IM-100,IM+100);
+    const BinSettings vertex_bins(200,-10,10);
+    const BinSettings theta_bins(720, 0, 180);
+    const BinSettings phi_bins(720, 0, 360);
+    const BinSettings angle_bins(500, 0, 50);
+    const BinSettings energy_range_bins(1600, -1600, 1600);
+    const BinSettings q2_bins(2000, 0, 1000);
+    const BinSettings count_bins(50, 0, 50);
+
+    AddHistogram("pid", "PID Bananas", "Cluster Energy [MeV]", "Veto Energy [MeV]", energy_bins, veto_bins);
+    AddHistogram("particle_types", "Identified particles", "Particle Type", "#", particle_bins);
+    AddHistogram("n_part", "Number of particles", "#particles", "#", particle_bins);
+    AddHistogram("tagger_spectrum", "Tagger Spectrum", "Photon Beam Energy [MeV]", "#", tagger_bins);
+    AddHistogram("tagger_time", "Tagger Time", "Tagger Time [ns]", "#", energy_range_bins);
+    AddHistogram("tagger_energy", "Tagger Energy", "Photon Beam Energy [MeV]", "#", tagger_bins);
+    AddHistogram("n_tagged", "Tagger Hits", "Tagger Hits / event", "#", ntaggerhits_bins);
+    AddHistogram("cb_esum", "CB Energy Sum", "E [MeV]", "#", energy_bins);
+
+    AddHistogram("q2_dist_before", "q^{2} Distribution before KinFit", "q^{2} [MeV]", "#", q2_bins);
+    AddHistogram("q2_dist_after", "q^{2} Distribution after KinFit", "q^{2} [MeV]", "#", q2_bins);
+
+    // different checks
+    AddHistogram("photon_energies", "Photon Energies", "E(photon1) [MeV]", "E(photon2) [MeV]", energy_bins, energy_bins);
+    AddHistogram("photon_energies_true", "True Photon Energies", "E(photon1)_{true} [MeV]", "E(photon2)_{true} [MeV]",
+                 energy_bins, energy_bins);
+    AddHistogram("proton_energy_vs_opening_angle", "Proton energy vs. opening angle", "Opening angle [#circ]",
+                 "E_{#gamma} [MeV]", theta_bins, energy_bins);
+    AddHistogram("proton_energy_vs_opening_angle_true", "True proton energy vs. opening angle", "Opening angle [#circ]",
+                 "E_{#gamma} [MeV]", theta_bins, energy_bins);
+    AddHistogram("theta_vs_clusters", "Theta vs. #Clusters", "#Clusters", "#vartheta [#circ]", particlecount_bins, theta_bins);
+    AddHistogram("opening_angle_vs_q2", "Opening Angle Leptons vs. q^{2}", "q^{2} [GeV^{2}]", "Opening angle [#circ]",
+                 q2_bins, theta_bins);
+    AddHistogram("dEvE", "dE vs. E", "E_{Crystals} [MeV]", "dE_{Veto} [MeV]", energy_bins, veto_bins);
+    AddHistogram("crystals_vs_ecl_uncharged", "#Crystals vs. Cluster Energy", "Cluster Energy [GeV]", "#Crystals",
+                 q2_bins, count_bins);
+    AddHistogram("energy_vs_momentum_z_balance", "Energy vs. p_{z} balance", "p_{z} [GeV]", "Energy [GeV]",
+                 energy_range_bins, energy_range_bins);
+
+    AddHistogram("opening_angle_photons", "Photon opening angle", "Opening angle [#circ]", "#", theta_bins);
+    AddHistogram("opening_angle_photons_true", "Photon opening angle true", "Opening angle [#circ]", "#", theta_bins);
+    AddHistogram("energy_photon1", "Energy photon", "E [MeV]", "#", energy_bins);
+    AddHistogram("energy_photon1_true", "True energy photon1", "E_{true} [MeV]", "#", energy_bins);
+    AddHistogram("energy_photon2", "Energy photon", "E [MeV]", "#", energy_bins);
+    AddHistogram("energy_photon2_true", "True energy photon2", "E_{true} [MeV]", "#", energy_bins);
+    // proton checks
+    AddHistogram("proton_energy", "Energy proton", "E [MeV]", "#", energy_bins);
+    AddHistogram("proton_energy_true", "Energy proton true", "E [MeV]", "#", energy_bins);
+    AddHistogram("proton_energy_fit", "Energy proton fitted", "E [MeV]", "#", energy_bins);
+    AddHistogram("proton_energy_delta", "#DeltaE_{proton} reconstructed - fitted", "E [MeV]", "#", energy_range_bins);
+    AddHistogram("proton_angle_TAPS_expected", "Opening Angle reconstr. Cluster_{TAPS} - expected proton",
+                 "opening angle [#circ]", "#", angle_bins);
+
+    AddHistogram("coplanarity", "Coplanarity #eta' proton", "Coplanarity [#circ]", "#", phi_bins);
+    AddHistogram("missing_mass", "Missing Mass Proton", "m_{miss} [MeV]", "#", energy_bins);
+
+    // make fitter histograms
+    AddHistogram("chisquare", "ChiSquare", "#chi^{2}", "#", chisquare_bins);
+    AddHistogram("probability", "Probability", "Probability", "#", probability_bins);
+    AddHistogram("iterations", "Number of iterations", "Iterations", "#", iterations_bins);
+
+    stringstream fs;
+    fs << "gg";
+    AddHistogram("im_true", "IM "+fs.str()+" true", "IM", "#", im_bins);
+    AddHistogram("im_smeared", "IM "+fs.str()+" smeared", "IM", "#", im_bins);
+    AddHistogram("im_fit", "IM "+fs.str()+" fit", "IM", "#", im_bins);
+
+    AddHistogram("vertex_z_before", "Vertex Z Before", "v_z [cm]", "#", vertex_bins);
+    AddHistogram("vertex_z_after", "Vertex Z After", "v_z [cm]", "#", vertex_bins);
+
+    AddHistogram("coplanarity_fit", "Coplanarity #eta' proton fitted", "Coplanarity [#circ]", "#", phi_bins);
+    AddHistogram("missing_mass_fit", "Missing Mass Proton fitted", "m_{miss} [MeV]", "#", energy_bins);
+    AddHistogram("energy_vs_momentum_z_balance_fit", "Energy vs. p_{z} balance fitted", "p_{z} [GeV]", "Energy [GeV]",
+                 energy_range_bins, energy_range_bins);
+
+    // histograms after cuts
+    AddHistogram("im_cut", "IM "+fs.str()+" after cuts", "IM", "#", im_bins);
+    AddHistogram("im_fit_cut", "IM "+fs.str()+" fit after cuts", "IM", "#", im_bins);
+    AddHistogram("q2_dist_cut", "q^{2} Distribution after Cuts", "q^{2} [GeV]", "#", q2_bins);
+    AddHistogram("q2_dist_fit_cut", "q^{2} Distribution fit after Cuts", "q^{2} [GeV]", "#", q2_bins);
+    AddHistogram("coplanarity_cut", "Coplanarity #eta' proton after Cuts", "Coplanarity [#circ]", "#", phi_bins);
+    AddHistogram("coplanarity_fit_cut", "Coplanarity #eta' proton fit after Cuts", "Coplanarity [#circ]", "#", phi_bins);
+    AddHistogram("missing_mass_cut", "Missing Mass Proton after Cuts", "m_{miss} [MeV]", "#", energy_bins);
+    AddHistogram("missing_mass_fit_cut", "Missing Mass Proton fit after Cuts", "m_{miss} [MeV]", "#", energy_bins);
+    AddHistogram("proton_angle_TAPS_expected_cut", "Opening Angle reconstr. Cluster_{TAPS} - expected proton after Cuts",
+                 "opening angle [#circ]", "#", angle_bins);
+    AddHistogram("energy_vs_momentum_z_balance_cut", "Energy vs. p_{z} balance after Ctus", "p_{z} [GeV]", "Energy [GeV]",
+                 energy_range_bins, energy_range_bins);
+    AddHistogram("energy_vs_momentum_z_balance_fit_cut", "Energy vs. p_{z} balance fit after Ctus", "p_{z} [GeV]",
+                 "Energy [GeV]", energy_range_bins, energy_range_bins);
+
+    AddHistogram("dEvE_cut", "dE vs. E Cut", "E_{Crystals} [MeV]", "dE_{Veto} [MeV]", energy_bins, veto_bins);
+    AddHistogram("crystals_vs_ecl_cut", "#Crystals vs. Cluster Energy Cut", "Cluster Energy [GeV]", "#Crystals",
+                 q2_bins, count_bins);
+    AddHistogram("crystals_vs_ecl_uncharged_cut", "#Crystals vs. Cluster Energy Cut", "Cluster Energy [GeV]",
+                 "#Crystals", q2_bins, count_bins);
+
+    // invM spectra for different q^2 ranges
+    int start_range = 0;
+    while (start_range < int(im_q2_upper_bound)) {
+        char title[40];
+        char name[20];
+        sprintf(name, "im_q2_%d_%d", int(start_range), int(start_range + im_q2_mev_steps));
+        sprintf(title, "IM %d MeV < q^{2} < %d MeV", int(start_range), int(start_range + im_q2_mev_steps));
+        AddHistogram(name, title, "IM [MeV]", "#", im_bins);
+        start_range += im_q2_mev_steps;
+    }
+}
+
+ant::analysis::etap_2g::etap_2g(const mev_t energy_scale) :
+    Physics("etap_2g"),
+    prompt("prompt", energy_scale),
+    random("random", energy_scale),
+    diff("diff", energy_scale),
+    prompt_window(-6, 6),
+    random_window1(-40, -15),
+    random_window2(15, 40),
+    fitter("etap_2g"),
+    final_state(nFinalState)
+{
+    cout << "Eta' 2gamma Physics:\n";
+    cout << "Prompt window: " << prompt_window << " ns\n";
+    cout << "Random window 1: " << random_window1 << " ns\n";
+    cout << "Random window 2: " << random_window2 << " ns\n";
+
+    // histogram to count number of different particle types
+    for (auto& t : ParticleTypeDatabase::DetectableTypes())
+        numParticleType[t]= HistFac.makeTH1D("Number of " + t->PrintName(),
+                                      "number of " + t->PrintName() + "/ event",
+                                      "", BinSettings(16,0,16), "n_" + t->PrintName());
+
+    // prepare invM histograms for different q2 ranges
+    int start_range = 0;
+    while (start_range < int(im_q2_upper_bound)) {
+        char name[20];
+        sprintf(name, "im_q2_%d_%d", int(start_range), int(start_range + im_q2_mev_steps));
+        im_q2_prompt.push_back(prompt[name]);
+        im_q2_random.push_back(random[name]);
+        im_q2_diff.push_back(diff[name]);
+        start_range += im_q2_mev_steps;
+    }
+
+    // setup fitter for eta' 2g decay
+    fitter.LinkVariable("Beam", beam.Link(), beam.LinkSigma());
+    fitter.LinkVariable("Photon1", final_state[0].Link(), final_state[0].LinkSigma());
+    fitter.LinkVariable("Photon2", final_state[1].Link(), final_state[1].LinkSigma());
+    fitter.LinkVariable("Proton", final_state[2].Link(), final_state[2].LinkSigma());
+
+    vector<string> all_names = {"Beam", "Photon1", "Photon2", "Proton"};
+
+    // Constraint: Incoming 4-vector = Outgoing 4-vector
+    auto EnergyMomentumBalance = [] (const vector<vector<double>>& particles) -> vector<double>
+    {
+        const TLorentzVector target(0,0,0, ParticleTypeDatabase::Proton.Mass());
+        // assume first particle is beam photon
+        TLorentzVector diff = target + FitParticle::Make(particles[0], ParticleTypeDatabase::Photon.Mass());
+        // assume second and third particle outgoing photons
+        diff -= FitParticle::Make(particles[1], ParticleTypeDatabase::Photon.Mass());
+        diff -= FitParticle::Make(particles[2], ParticleTypeDatabase::Photon.Mass());
+        // assume last particle outgoing proton
+        diff -= FitParticle::Make(particles[3], ParticleTypeDatabase::Proton.Mass());
+
+        return {diff.X(), diff.Y(), diff.Z(), diff.T()};
+    };
+    fitter.AddConstraint("EnergyMomentumBalance", all_names, EnergyMomentumBalance);
+
+    // Constraint: Coplanarity between eta' and recoil proton
+    auto CoplanarityConstraint = [] (const vector<vector<double>>& particles) -> double
+    {
+        TLorentzVector etap = FitParticle::Make(particles[1], ParticleTypeDatabase::Photon.Mass());
+        etap += FitParticle::Make(particles[2], ParticleTypeDatabase::Photon.Mass());
+        TLorentzVector proton = FitParticle::Make(particles[3], ParticleTypeDatabase::Proton.Mass());
+        return abs(etap.Phi() - proton.Phi())*TMath::RadToDeg() - 180.;
+    };
+    if (includeCoplanarityConstraint)
+        fitter.AddConstraint("CoplanarityConstraint", all_names, CoplanarityConstraint);
+
+    // Constraint: Invariant mass of nPhotons equals constant IM,
+    // make lambda catch also this with [&] specification
+    auto RequireIM = [&] (const vector<vector<double>>& particles) -> double
+    {
+        TLorentzVector sum(0,0,0,0);
+        sum += FitParticle::Make(particles[1], ParticleTypeDatabase::Photon.Mass());
+        sum += FitParticle::Make(particles[2], ParticleTypeDatabase::Photon.Mass());
+
+        return sum.M() - IM;
+    };
+    if (includeIMconstraint)
+        fitter.AddConstraint("RequireIM", all_names, RequireIM);
+
+    // Constraint: Vertex position in z direction: v_z (positive if upstream)
+    // if the photon originated from (0,0,v_z) instead of origin,
+    // the corrected angle theta' is given by
+    // tan(theta') = (R sin(theta))/(R cos(theta) - v_z)
+    // R is the CB radius, 10in aka 25.4cm
+
+    auto VertexConstraint = [&] (vector<vector<double>>& particles) -> double
+    {
+        constexpr double R = 25.4;
+        // last element in particles is vz (scalar has dimension 1)
+        // see AddConstraint below
+        const double v_z = particles.back()[0];
+        particles.resize(particles.size()-1); // get rid of last element
+        // correct each photon's theta angle,
+        // then calculate invariant mass of all photons
+        TLorentzVector sum(0,0,0,0);
+        for (auto i = particles.begin()+1; i != particles.end()-1; ++i) {
+            const double theta = (*i)[1]; // second element is theta
+            const double theta_p = std::atan2( R*sin(theta), R*cos(theta) - v_z);
+            (*i)[1] = theta_p;
+            sum += FitParticle::Make(*i, ParticleTypeDatabase::Photon.Mass());
+        }
+        return sum.M() - IM;
+    };
+
+    if (includeVertexFit) {
+        fitter.AddUnmeasuredVariable("v_z"); // default value 0
+        fitter.AddConstraint("VertexConstraint", all_names + std::vector<string>{"v_z"}, VertexConstraint);
+    }
+
+    static_assert(!(includeIMconstraint && includeVertexFit), "Do not enable Vertex and IM Fit at the same time");
+
+    // create pull histograms
+    const BinSettings pull_bins(50,-3,3);
+    for (const auto& varname : fitter.VariableNames()) {
+        string title(varname);
+        size_t pos = title.find("[");
+        if (pos != string::npos) {
+            const string prop = " " + component.at(atoi(&varname.at(pos+1)));
+            title.replace(pos, 3, prop);
+        }
+        prompt.AddHistogram("pull_" + varname, "Pull " + title, "Pull", "#", pull_bins);
+        pulls_prompt[varname] = prompt["pull_" + varname];
+        random.AddHistogram("pull_" + varname, "Pull " + title, "Pull", "#", pull_bins);
+        pulls_random[varname] = random["pull_" + varname];
+        diff.AddHistogram("pull_" + varname, "Pull " + title, "Pull", "#", pull_bins);
+        pulls_diff[varname] = diff["pull_" + varname];
+    }
+
+    APLCON::Fit_Settings_t settings = fitter.GetSettings();
+    settings.MaxIterations = 20;
+    fitter.SetSettings(settings);
+
+    cout.precision(3);
+    APLCON::PrintFormatting::Width = 11;
+}
+
+void ant::analysis::etap_2g::ProcessEvent(const ant::Event &event)
+{
+    for (auto& track : event.Reconstructed().Tracks()) {
+        prompt["pid"]->Fill(track->ClusterEnergy(), track->VetoEnergy());
+    }
+
+    for (auto& particle : event.Reconstructed().Particles().GetAll()) {
+        prompt["particle_types"]->Fill(particle->Type().PrintName().c_str(), 1);
+    }
+
+    prompt["n_tagged"]->Fill(event.Reconstructed().TaggerHits().size());
+
+    prompt["cb_esum"]->Fill(event.Reconstructed().TriggerInfos().CBEenergySum());
+
+    for (auto& t : ParticleTypeDatabase::DetectableTypes()) {
+        try {
+            numParticleType.at(t)->Fill(event.Reconstructed().Particles().Get(*t).size());
+        } catch (...) {}
+    }
+
+    TaggerHistList tagger_hits;
+    //static size_t count = 0;
+    const bool MC = false;
+    if (MC)
+        tagger_hits = event.MCTrue().TaggerHits();
+    else
+        tagger_hits = event.Reconstructed().TaggerHits();
+
+    for (const auto& taggerhit : tagger_hits) {
+        prompt["tagger_spectrum"]->Fill(taggerhit->PhotonEnergy());
+        prompt["tagger_time"]->Fill(taggerhit->Time());
+
+        // determine if the event is in the prompt or random window
+        bool is_prompt = false;
+        if (prompt_window.Contains(taggerhit->Time()))
+            is_prompt = true;
+        else if (random_window1.Contains(taggerhit->Time()) || random_window1.Contains(taggerhit->Time()))
+            is_prompt = false;
+        else
+            continue;
+
+        // make sure the correct histogram will be filled
+        HistList& h = is_prompt ? prompt : random;
+
+        h["n_part"]->Fill(event.Reconstructed().Particles().GetAll().size());
+        h["tagger_energy"]->Fill(taggerhit->PhotonEnergy());
+
+//        // find the photons and one proton
+//        size_t foundPhotons = 0;
+//        for(const auto& p : event.MCTrue().Particles().GetAll()) {
+//            if(p->Type() == ParticleTypeDatabase::Proton) {
+//                proton.SetFromVector(*p);
+//            }
+//            else if(foundPhotons<nPhotons && p->Type() == ParticleTypeDatabase::Photon) {
+//                photons[foundPhotons].SetFromVector(*p);
+//                foundPhotons++;
+//           }
+//        }
+//        if(foundPhotons != nPhotons)
+//            continue;
+
+        nParticles = nParticlesCB = nParticlesTAPS = 0;
+        particle_vector particles;
+        GetParticles(event, particles);
+        if (nParticles != nFinalState)
+            continue;
+
+        // check if we have the right amount of photons and protons
+        unsigned short ng = 0, np = 0;
+        for (auto it = particles.begin(); it != particles.end(); ++it) {
+            if (it->Type() == ParticleTypeDatabase::Photon)
+                ng++;
+            else if (it->Type() == ParticleTypeDatabase::Proton)
+                np++;
+        }
+        if (ng != 2 || np != 1)
+            continue;
+
+        // check theta distribution in dependence of the number of clusters
+        TrackPtr tr;
+        bool highVeto = false;
+        for (const auto& p : particles) {
+            tr = p.Tracks().front();
+            if (tr->VetoEnergy() > 3.)
+                highVeto = true;
+            h["theta_vs_clusters"]->Fill(nParticles, p.Theta()*TMath::RadToDeg());
+            h["dEvE"]->Fill(tr->ClusterEnergy(), tr->VetoEnergy());
+            if (!p.Type().Charged())
+                h["crystals_vs_ecl_uncharged"]->Fill(tr->ClusterEnergy(), tr->ClusterSize());
+        }
+
+        // swap the proton and the last vector entry if the proton is not the last particle
+        for (auto it = particles.begin(); it != particles.end()-1; ++it)
+            if (it->Type() == ParticleTypeDatabase::Proton) {
+                std::iter_swap(it, particles.end()-1);
+                break;
+            }
+
+        const TLorentzVector target(0., 0., 0., ParticleTypeDatabase::Proton.Mass());
+        TLorentzVector balanceP4 = taggerhit->PhotonBeam() + target;
+        for (const auto& p : particles)
+            balanceP4 -= p;
+        h["energy_vs_momentum_z_balance"]->Fill(balanceP4.Pz(), balanceP4.E());
+
+        TLorentzVector proton = particles.back();
+        TLorentzVector etap(0., 0., 0., 0.);
+        for (auto it = particles.cbegin(); it != particles.cend()-1; ++it)
+            etap += *it;
+        const double copl = abs(etap.Phi() - particles.back().Phi())*TMath::RadToDeg();
+        h["coplanarity"]->Fill(copl);
+        TLorentzVector missingProton = taggerhit->PhotonBeam() + target - etap;
+        double missM = missingProton.M();
+        h["missing_mass"]->Fill(missM);
+
+        h["proton_energy"]->Fill(proton.T());
+        double openAngle_p_TAPS_expected = proton.Angle(missingProton.Vect())*TMath::RadToDeg();
+        h["proton_angle_TAPS_expected"]->Fill(openAngle_p_TAPS_expected);
+
+        //std::copy(particles.begin(), particles.end(), final_state);
+//        std::transform(particles.begin(), particles.end(), final_state.begin(),
+//                       [](Particle& p) -> double { return FitParticle().SetFromVector(p); });
+        auto it = final_state.begin();
+        for (const auto& p : particles)
+            (it++)->SetFromVector(p);
+
+        if (!(event.MCTrue().Particles().GetAll().empty())) {
+            // use the first particle in the particles vector as a placeholder
+            Particle photon1_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+            Particle photon2_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+            Particle proton_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+            size_t ng = 0;
+            for (const auto& p : event.MCTrue().Particles().GetAll()) {
+                if (p->Type() == ParticleTypeDatabase::Photon && ng == 0) {
+                    photon1_true = Particle(*p);
+                    ng++;
+                } else if (p->Type() == ParticleTypeDatabase::Photon && ng == 1)
+                    photon2_true = Particle(*p);
+                else if (p->Type() == ParticleTypeDatabase::Proton)
+                    proton_true = Particle(*p);
+            }
+
+            double photon_open_angle_true = photon1_true.Angle(photon2_true.Vect())*TMath::RadToDeg();
+            double en_g1_true, en_g2_true;
+            if (photon1_true.Ek() > photon2_true.Ek()) {
+                en_g1_true = photon1_true.Ek();
+                en_g2_true = photon2_true.Ek();
+            } else {
+                en_g1_true = photon2_true.Ek();
+                en_g2_true = photon1_true.Ek();
+            }
+            if ((photon1_true.Type() == ParticleTypeDatabase::Photon)
+                    && (photon2_true.Type() == ParticleTypeDatabase::Photon)) {
+                h["opening_angle_photons_true"]->Fill(photon_open_angle_true);
+                h["proton_energy_vs_opening_angle_true"]->Fill(photon_open_angle_true, proton_true.Ek());
+                h["photon_energies_true"]->Fill(en_g1_true, en_g2_true);
+                h["energy_photon1_true"]->Fill(en_g1_true);
+                h["energy_photon2_true"]->Fill(en_g2_true);
+            }
+            h["proton_energy_true"]->Fill(proton_true.Ek());
+        }
+
+        double q2_before = (particles[0] + particles[1]).M();
+        double photon_open_angle = particles[0].Angle(particles[1].Vect())*TMath::RadToDeg();
+        double en_g1 = particles[0].T();
+        double en_g2 = particles[1].T();
+        if (en_g1 < en_g2) {
+            en_g1 = en_g2;
+            en_g2 = particles[0].T();
+        }
+        h["opening_angle_photons"]->Fill(photon_open_angle);
+        h["photon_energies"]->Fill(en_g1, en_g2);
+        h["energy_photon1"]->Fill(en_g1);
+        h["energy_photon2"]->Fill(en_g2);
+        h["proton_energy_vs_opening_angle"]->Fill(photon_open_angle, particles[2].T());
+        h["opening_angle_vs_q2"]->Fill(q2_before, photon_open_angle);
+        h["q2_dist_before"]->Fill(q2_before);
+
+        // set proton energy sigma to zero to indicate it's unmeasured
+        final_state[2].Ek_Sigma = 0;
+
+//        std::transform(myv1.begin(), myv1.end(), myv1.begin(), [](double d) -> double { return d * 3; });
+//        for_each(begin(myv1), end(myv1), [](double& a) { a *= 3; });
+
+        beam.SetFromVector(taggerhit->PhotonBeam());
+        // set beam energy sigma to 2 MeV
+        beam.Ek_Sigma = 2.;
+
+        FillIM(h["im_true"], final_state);
+
+//        // smear the MC true data
+//        proton.Smear();
+//        for(auto& photon : photons)
+//            photon.Smear();
+//        beam.Smear();
+
+//        FillIM(h["im_smeared"], photons);
+
+        // Cut on missing mass of the proton
+        if (missM < 900. && missM > 990.)
+            continue;
+        // Cut on Veto energy
+        if (highVeto)
+            continue;
+        // Cut on opening angle between TAPS cluster and expected proton
+        // (mainly for suppressing bad events which will be unnecassarily fitted, affects only a few background events)
+        if (openAngle_p_TAPS_expected > 5.)
+            continue;
+
+        // let APLCON do the work
+        const APLCON::Result_t& result = fitter.DoFit();
+
+        //cout << result << endl;
+
+        if (result.Status != APLCON::Result_Status_t::Success) {
+            //cout << result << endl;
+            continue;
+        }
+
+        for (const auto& it_map : result.Variables) {
+            const string& varname = it_map.first;
+            const APLCON::Result_Variable_t& var = it_map.second;
+            if (is_prompt)
+                pulls_prompt.at(varname)->Fill(var.Pull);
+            else
+                pulls_random.at(varname)->Fill(var.Pull);
+        }
+        h["chisquare"]->Fill(result.ChiSquare);
+        h["probability"]->Fill(result.Probability);
+        h["iterations"]->Fill(result.NIterations);
+
+        if (includeVertexFit) {
+            h["vertex_z_after"]->Fill(result.Variables.at("v_z").Value.After);
+            h["vertex_z_before"]->Fill(result.Variables.at("v_z").Value.Before);
+        }
+
+        FillIM(h["im_fit"], final_state);
+
+        double q2_after = (FitParticle::Make(final_state[0], ParticleTypeDatabase::Photon.Mass())
+                + FitParticle::Make(final_state[1], ParticleTypeDatabase::Photon.Mass())).M();
+        h["q2_dist_after"]->Fill(q2_after);
+
+        TLorentzVector balanceP4_fit = target + FitParticle::Make(beam, ParticleTypeDatabase::Photon.Mass());
+        // create the fitted final state particles
+        TLorentzVector proton_fit = FitParticle::Make(final_state[2], ParticleTypeDatabase::Proton.Mass());
+        TLorentzVector etap_fit(0., 0., 0., 0.);
+        etap_fit += FitParticle::Make(final_state[0], ParticleTypeDatabase::Photon.Mass());
+        etap_fit += FitParticle::Make(final_state[1], ParticleTypeDatabase::Photon.Mass());
+        balanceP4_fit -= etap_fit;
+        balanceP4_fit -= proton_fit;
+        h["energy_vs_momentum_z_balance_fit"]->Fill(balanceP4_fit.Pz(), balanceP4_fit.E());
+
+        const double copl_fit = abs(etap_fit.Phi() - particles.back().Phi())*TMath::RadToDeg();
+        h["coplanarity_fit"]->Fill(copl_fit);
+        TLorentzVector missingProtonFit = target + FitParticle::Make(beam, ParticleTypeDatabase::Photon.Mass()) - etap_fit;
+        h["missing_mass_fit"]->Fill(missingProtonFit.M());
+
+        h["proton_energy_fit"]->Fill(proton_fit.T());
+        h["proton_energy_delta"]->Fill(proton.T() - proton_fit.T());
+
+        // Cut on chi^2
+        if (result.ChiSquare > 10.)
+            return;
+
+        // fill the invM histograms for different q2 ranges
+        if (q2_after < im_q2_upper_bound) {
+            if (is_prompt)
+                im_q2_prompt.at(static_cast<int>(q2_after/im_q2_mev_steps))->Fill(etap_fit.M());
+            else
+                im_q2_random.at(static_cast<int>(q2_after/im_q2_mev_steps))->Fill(etap_fit.M());
+        }
+
+        h["im_cut"]->Fill(etap.M());
+        FillIM(h["im_fit_cut"], final_state);
+        h["q2_dist_cut"]->Fill(q2_before);
+        h["q2_dist_fit_cut"]->Fill(q2_after);
+        h["coplanarity_cut"]->Fill(copl);
+        h["missing_mass_cut"]->Fill(missM);
+        h["missing_mass_fit_cut"]->Fill(missingProtonFit.M());
+        h["coplanarity_fit_cut"]->Fill(copl_fit);
+        h["proton_angle_TAPS_expected_cut"]->Fill(openAngle_p_TAPS_expected);
+        h["energy_vs_momentum_z_balance_cut"]->Fill(balanceP4.Pz(), balanceP4.E());
+        h["energy_vs_momentum_z_balance_fit_cut"]->Fill(balanceP4_fit.Pz(), balanceP4_fit.E());
+
+        for (const auto& p : particles) {
+            tr = p.Tracks().front();
+            h["crystals_vs_ecl_cut"]->Fill(tr->ClusterEnergy(), tr->ClusterSize());
+            h["dEvE_cut"]->Fill(tr->ClusterEnergy(), tr->VetoEnergy());
+            if (!p.Type().Charged())
+                h["crystals_vs_ecl_uncharged_cut"]->Fill(tr->ClusterEnergy(), tr->ClusterSize());
+        }
+    }
+}
+
+void ant::analysis::etap_2g::Finish()
+{
+    double factor = -prompt_window.Length() / (random_window1.Length() + random_window2.Length());
+    diff = prompt;
+    diff.AddScaled(random, factor);
+}
+
+void ant::analysis::etap_2g::ShowResult()
+{
+    canvas c("etap_2g: Overview");
+    c << drawoption("colz") << diff["pid"]
+      << padoption::set(padoption_t::Legend)
+      << diff["particle_types"]
+      << padoption::unset(padoption_t::Legend)
+      << diff["tagger_spectrum"] << diff["n_tagged"] << diff["cb_esum"] << endc;
+
+    canvas c_pulls("etap_2g: Pulls");
+    c_pulls << padoption::set(padoption_t::LogY);
+    for (auto& p : pulls_diff)
+        c_pulls << p.second;
+    c_pulls << endc;
+
+    canvas c_fitter("etap_2g: Fitter");
+    c_fitter <<  diff["chisquare"] <<  diff["probability"] << diff["iterations"]
+             <<  diff["im_true"] <<  diff["im_smeared"] <<  diff["im_fit"]
+             <<  diff["vertex_z_before"] <<  diff["vertex_z_after"] << endc;
+
+    // draw all random subtracted histograms
+    //diff.Draw();
+}
+
+void ant::analysis::etap_2g::GetParticles(const ant::Event& event, particle_vector& particles)
+{
+    // example of how to collect particles in a user defined way
+    for (const auto& track : event.Reconstructed().Tracks()) {
+        if (track->Detector() & ant::detector_t::NaI) {
+            nParticlesCB++;
+            //if (track->VetoEnergy() > 0.)  // PID entry? --> charged
+            if (track->Detector() & detector_t::PID)
+                particles.push_back(Particle(ParticleTypeDatabase::eMinus, track));
+            else
+                particles.push_back(Particle(ParticleTypeDatabase::Photon, track));
+        } else if (track->Detector() & ant::detector_t::BaF2 || track->Detector() & ant::detector_t::PbWO4) {
+            nParticlesTAPS++;
+            //if (track->VetoEnergy() > 0.)  // Veto entry? --> charged
+            if (track->Detector() & detector_t::Veto)
+                particles.push_back(Particle(ParticleTypeDatabase::Proton, track));
+            else
+                particles.push_back(Particle(ParticleTypeDatabase::Photon, track));
+        }
+    //std::cout << track->Detector() << std::endl;
+    }
+    nParticles = nParticlesCB + nParticlesTAPS;
+
+/*    // sort out particles with an energy of less than 10 MeV
+    for (particle_it it = particles->begin(); it != particles->end();)
+        if (it->E() < 10.)
+            it = particles->erase(it);
+        else
+            ++it;*/
+}
+
+void ant::analysis::etap_2g::GetTrueParticles(const ant::Event& event, particle_vector& particles)
+{
+    for (const auto& p : event.MCTrue().Particles().GetAll())
+        if (contains(ParticleTypeDatabase::MCFinalStateTypes(), p->Type()))
+            particles.push_back(Particle(*p));
+    nParticles = particles.size();
+}
