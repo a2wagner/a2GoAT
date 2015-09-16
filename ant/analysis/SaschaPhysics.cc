@@ -385,7 +385,7 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
         fitter.AddConstraint("RequireIM", all_names, RequireIM);
 
     // Constraint: Vertex position in z direction: v_z (positive if upstream)
-    // if the photon originated from (0,0,v_z) instead of origin,
+    // if the particle originated from (0,0,v_z) instead of origin,
     // the corrected angle theta' is given by
     // tan(theta') = (R sin(theta))/(R cos(theta) - v_z)
     // R is the CB radius, 10in aka 25.4cm
@@ -397,14 +397,19 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
         // see AddConstraint below
         const double v_z = particles.back()[0];
         particles.resize(particles.size()-1); // get rid of last element
-        // correct each photon's theta angle,
-        // then calculate invariant mass of all photons
+        // correct each particle's theta angle,
+        // then calculate invariant mass of all particles
         TLorentzVector sum(0,0,0,0);
+        size_t n = 0;
         for (auto i = particles.begin()+1; i != particles.end()-1; ++i) {
             const double theta = (*i)[1]; // second element is theta
             const double theta_p = std::atan2( R*sin(theta), R*cos(theta) - v_z);
             (*i)[1] = theta_p;
-            sum += FitParticle::Make(*i, ParticleTypeDatabase::Photon.Mass());
+            if (n < 2)  // first two particles are the electron and positron
+                sum += FitParticle::Make(*i, ParticleTypeDatabase::eMinus.Mass());
+            else  // last particle is the photon
+                sum += FitParticle::Make(*i, ParticleTypeDatabase::Photon.Mass());
+            n++;
         }
         return sum.M() - IM;
     };
@@ -562,7 +567,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 
         TLorentzVector proton = particles.back();
         TLorentzVector etap(0., 0., 0., 0.);
-        for (auto it = particles.begin(); it != particles.end()-1; ++it)
+        for (auto it = particles.cbegin(); it != particles.cend()-1; ++it)
             etap += *it;
         const double copl = abs(etap.Phi() - particles.back().Phi())*TMath::RadToDeg();
         h["coplanarity"]->Fill(copl);
