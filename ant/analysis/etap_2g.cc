@@ -413,7 +413,7 @@ ant::analysis::etap_2g::etap_2g(const mev_t energy_scale) :
     }
 
     APLCON::Fit_Settings_t settings = fitter.GetSettings();
-    settings.MaxIterations = 20;
+    settings.MaxIterations = 10;
     fitter.SetSettings(settings);
 
     cout.precision(3);
@@ -500,11 +500,8 @@ void ant::analysis::etap_2g::ProcessEvent(const ant::Event &event)
 
         // check theta distribution in dependence of the number of clusters
         TrackPtr tr;
-        bool highVeto = false;
         for (const auto& p : particles) {
             tr = p.Tracks().front();
-            if (tr->VetoEnergy() > 3.)
-                highVeto = true;
             h["theta_vs_clusters"]->Fill(nParticles, p.Theta()*TMath::RadToDeg());
             h["dEvE"]->Fill(tr->ClusterEnergy(), tr->VetoEnergy());
             if (!p.Type().Charged())
@@ -618,14 +615,11 @@ void ant::analysis::etap_2g::ProcessEvent(const ant::Event &event)
 //        FillIM(h["im_smeared"], photons);
 
         // Cut on missing mass of the proton
-        if (missM < 900. && missM > 990.)
-            continue;
-        // Cut on Veto energy
-        if (highVeto)
+        if (missM < 890. && missM > 1000.)
             continue;
         // Cut on opening angle between TAPS cluster and expected proton
         // (mainly for suppressing bad events which will be unnecassarily fitted, affects only a few background events)
-        if (openAngle_p_TAPS_expected > 5.)
+        if (openAngle_p_TAPS_expected > 6.)
             continue;
 
         // let APLCON do the work
