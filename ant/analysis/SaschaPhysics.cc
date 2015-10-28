@@ -272,6 +272,14 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     AddHistogram("q2_dist_before", "q^{2} Distribution before KinFit", "q^{2} [MeV]", "#", q2_bins);
     AddHistogram("q2_dist_after", "q^{2} Distribution after KinFit", "q^{2} [MeV]", "#", q2_bins);
 
+    // im vs q2 histograms before and after several cuts
+    AddHistogram("q2_im_base_selection", "q^{2} vs. IM - Base Selection", "IM [MeV]", "q^{2} [MeV]", im_bins, q2_bins);
+    AddHistogram("q2_im_pid_cut", "q^{2} vs. IM - PID Cut", "IM [MeV]", "q^{2} [MeV]", im_bins, q2_bins);
+    AddHistogram("q2_im_miss_mass", "q^{2} vs. IM - Missing Mass", "IM [MeV]", "q^{2} [MeV]", im_bins, q2_bins);
+    AddHistogram("q2_im_before_fit", "q^{2} vs. IM - Before KinFit", "IM [MeV]", "q^{2} [MeV]", im_bins, q2_bins);
+    AddHistogram("q2_im_after_fit", "q^{2} vs. IM - After KinFit", "IM [MeV]", "q^{2} [MeV]", im_bins, q2_bins);
+    AddHistogram("q2_im_chi2_cut", "q^{2} vs. IM - #chi^{2} Cut", "IM [MeV]", "q^{2} [MeV]", im_bins, q2_bins);
+
     // different checks
     AddHistogram("lepton_energies", "Lepton Energies", "E(lepton1) [MeV]", "E(lepton2) [MeV]", energy_bins, energy_bins);
     AddHistogram("lepton_energies_true", "True Lepton Energies", "E(lepton1)_{true} [MeV]", "E(lepton2)_{true} [MeV]",
@@ -669,20 +677,32 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
                 std::iter_swap(it, particles.end()-2);
                 break;
             }
+
+        TLorentzVector proton = particles.back();
+        TLorentzVector etap(0., 0., 0., 0.);
+        for (auto it = particles.cbegin(); it != particles.cend()-1; ++it)
+            etap += *it;
+        double q2 = (particles.at(0) + particles.at(1)).M();
+        h["q2_im_base_selection"]->Fill(etap.M(), q2);
+
+        // perform cut on PID elements to suppress conversion lepton pairs
+        element_index_t pid1 = particles.at(0).Tracks().front()->CentralVeto(),
+                        pid2 = particles.at(1).Tracks().front()->CentralVeto();
+        if (pid1 == pid2)
+            continue;
+        h["q2_im_pid_cut"]->Fill(etap.M(), q2);
+
         h["tof_proton"]->Fill(taggerhit->Time() - particles.back().Tracks().front()->Time());
         //prompt["E_vs_tof"]->Fill(taggerhit->Time() - particles.back().Tracks().front()->Time(),
         //                         particles.back().Tracks().front()->ClusterEnergy());
 
         const TLorentzVector target(0., 0., 0., ParticleTypeDatabase::Proton.Mass());
         TLorentzVector balanceP4 = taggerhit->PhotonBeam() + target;
-        for (const auto& p : particles)
-            balanceP4 -= p;
+        //for (const auto& p : particles)
+        //    balanceP4 -= p;
+        balanceP4 -= etap + proton;
         h["energy_vs_momentum_z_balance"]->Fill(balanceP4.Pz(), balanceP4.E());
 
-        TLorentzVector proton = particles.back();
-        TLorentzVector etap(0., 0., 0., 0.);
-        for (auto it = particles.cbegin(); it != particles.cend()-1; ++it)
-            etap += *it;
         const double copl = abs(etap.Phi() - particles.back().Phi())*TMath::RadToDeg();
         h["coplanarity"]->Fill(copl);
         TLorentzVector missingProton = taggerhit->PhotonBeam() + target - etap;
@@ -777,7 +797,11 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 
 //        FillIM(h["im_smeared"], photons);
 
-        // Cut on missing mass of the proton
+        if (missM < 880. && missM > 1130.)
+            continue;
+        h["q2_im_miss_mass"]->Fill(etap.M(), q2);
+        h["q2_im_before_fit"]->Fill(etap.M(), q2);
+/*        // Cut on missing mass of the proton
         if (missM < 900. && missM > 990.)
             continue;
         // Cut on Veto energy
@@ -787,7 +811,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         // (mainly for suppressing bad events which will be unnecassarily fitted, affects only a few background events)
         if (openAngle_p_TAPS_expected > 5.)
             continue;
-
+*/
         // let APLCON do the work
         const APLCON::Result_t& result = fitter.DoFit();
 
@@ -831,6 +855,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         balanceP4_fit -= etap_fit;
         balanceP4_fit -= proton_fit;
         h["energy_vs_momentum_z_balance_fit"]->Fill(balanceP4_fit.Pz(), balanceP4_fit.E());
+        h["q2_im_after_fit"]->Fill(etap_fit.M(), q2_after);
 
         const double copl_fit = abs(etap_fit.Phi() - particles.back().Phi())*TMath::RadToDeg();
         h["coplanarity_fit"]->Fill(copl_fit);
@@ -843,6 +868,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         // Cut on chi^2
         if (result.ChiSquare > 10.)
             return;
+        h["q2_im_chi2_cut"]->Fill(etap_fit.M(), q2_after);
 
         // fill the invM histograms for different q2 ranges
         if (q2_after < im_q2_upper_bound) {
