@@ -154,10 +154,13 @@ void EventManager::CopyTracks(GTreeTrack *tree, Event &event)
                     tree->GetPhi(i) * TMath::DegToRad(),
                     tree->GetTime(i),
                     MapClusterSize(tree->GetClusterSize(i)),
+                    tree->GetCentralCrystal(i),
+                    tree->GetCentralVeto(i),
                     IntToDetector_t(tree->GetDetectors(i)),
                     tree->GetVetoEnergy(i),
                     tree->GetMWPC0Energy(i),
-                    tree->GetMWPC1Energy(i)
+                    tree->GetMWPC1Energy(i),
+                    tree->GetShortEnergy(i)
                     )));
     }
 }

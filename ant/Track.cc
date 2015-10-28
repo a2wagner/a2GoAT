@@ -14,6 +14,7 @@ ostream& Track::Print(ostream &stream) const
            << " Detectors=" << Detector()
            << " VetoEnergy=" << VetoEnergy()
            << " MWPC0Energy=" << MWPC0Energy()
-           << " MWPC1Energy=" << MWPC1Energy();
+           << " MWPC1Energy=" << MWPC1Energy()
+           << " ShortEnergy=" << ShortEnergy();
     return stream;
 }

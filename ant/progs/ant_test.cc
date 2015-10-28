@@ -37,10 +37,13 @@ int main() {
             radian_t(1.0),
             time_t(0.324),
             clustersize_t(4),
+            element_index_t(12),
+            element_index_t(3),
             detector_t::NaI,
             mev_t(0.4),
             mev_t(0.3),
-            mev_t(0.2)
+            mev_t(0.2),
+            mev_t(0.3)
             ));
     cout << t << endl;
 
@@ -131,10 +134,13 @@ int main() {
             radian_t(2.01),
             time_t(0.324),
             clustersize_t(4),
+            element_index_t(241),
+            element_index_t(2),
             detector_t::NaI,
             mev_t(0.4),
             mev_t(0.3),
-            mev_t(0.2)
+            mev_t(0.2),
+            mev_t(0.3)
             ));
     rec.emplace_back( new Particle(ParticleTypeDatabase::Photon, r1));
 
@@ -143,10 +149,13 @@ int main() {
             radian_t(.41),
             time_t(0.323),
             clustersize_t(5),
+            element_index_t(359),
+            element_index_t(6),
             detector_t::NaI,
             mev_t(0.4),
             mev_t(0.3),
-            mev_t(0.2)
+            mev_t(0.2),
+            mev_t(0.3)
             ));
 
     rec.emplace_back( new Particle(ParticleTypeDatabase::Photon, r2));
@@ -156,10 +165,13 @@ int main() {
             radian_t(.41),
             time_t(0.323),
             clustersize_t(5),
+            element_index_t(125),
+            element_index_t(13),
             detector_t::NaI,
             mev_t(0.4),
             mev_t(0.3),
-            mev_t(0.2)
+            mev_t(0.2),
+            mev_t(0.3)
             ));
 
     rec.emplace_back( new Particle(ParticleTypeDatabase::Photon, r3));
