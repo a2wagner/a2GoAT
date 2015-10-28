@@ -113,6 +113,56 @@ void analysis::SaschaPhysics::HistList::AddHistogram(const string &name,
                 pref+name);
 }
 
+void analysis::SaschaPhysics::HistList::AddHistogram(const string &name,
+                                                     const string &title,
+                                                     const string &x_label,
+                                                     const string &y_label,
+                                                     const string &z_label,
+                                                     const int x_bins_n,
+                                                     const double x_bins_low,
+                                                     const double x_bins_up,
+                                                     const int y_bins_n,
+                                                     const double y_bins_low,
+                                                     const double y_bins_up,
+                                                     const int z_bins_n,
+                                                     const double z_bins_low,
+                                                     const double z_bins_up)
+{
+    // setup three dimensional histogram TH3D
+    h_title[name] = title;
+    h[name] = HistogramFactory::Default().Make3D(
+                title,
+                x_label,
+                y_label,
+                z_label,
+                BinSettings(x_bins_n, x_bins_low, x_bins_up),
+                BinSettings(y_bins_n, y_bins_low, y_bins_up),
+                BinSettings(z_bins_n, z_bins_low, z_bins_up),
+                pref+name);
+}
+
+void analysis::SaschaPhysics::HistList::AddHistogram(const string &name,
+                                                     const string &title,
+                                                     const string &x_label,
+                                                     const string &y_label,
+                                                     const string &z_label,
+                                                     const BinSettings &x_bins,
+                                                     const BinSettings &y_bins,
+                                                     const BinSettings &z_bins)
+{
+    // setup three dimensional histogram TH3D
+    h_title[name] = title;
+    h[name] = HistogramFactory::Default().Make3D(
+                title,
+                x_label,
+                y_label,
+                z_label,
+                x_bins,
+                y_bins,
+                z_bins,
+                pref+name);
+}
+
 void analysis::SaschaPhysics::HistList::Draw()
 {
     if (!h.size())

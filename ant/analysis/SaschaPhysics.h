@@ -122,12 +122,36 @@ protected:
                           const double y_bins_low,      // lower bound of y axis
                           const double y_bins_up        // upper bound of y axis
                           );
-        void AddHistogram(const string &name,
-                          const string &title,
-                          const string &x_label,
-                          const string &y_label,
+        void AddHistogram(const std::string &name,
+                          const std::string &title,
+                          const std::string &x_label,
+                          const std::string &y_label,
                           const BinSettings &x_bins,
                           const BinSettings &y_bins);
+
+        // Add 3D histogram
+        void AddHistogram(const std::string& name,      // short specifier for histogram
+                          const std::string& title,     // descriptive title for histogram
+                          const std::string& x_label,   // x axis label
+                          const std::string& y_label,   // y axis label
+                          const std::string& z_label,   // z axis label
+                          const int x_bins_n,           // number of bins in x
+                          const double x_bins_low,      // lower bound of x axis
+                          const double x_bins_up,       // upper bound of y axis
+                          const int y_bins_n,           // number of bins in y
+                          const double y_bins_low,      // lower bound of y axis
+                          const double y_bins_up,       // upper bound of y axis
+                          const int z_bins_n,           // number of bins in z
+                          const double z_bins_low,      // lower bound of z axis
+                          const double z_bins_up);      // upper bound of z axis
+        void AddHistogram(const std::string &name,
+                          const std::string &title,
+                          const std::string &x_label,
+                          const std::string &y_label,
+                          const std::string &z_label,
+                          const BinSettings &x_bins,
+                          const BinSettings &y_bins,
+                          const BinSettings &z_bins);
 
         HistList(const std::string& prefix, const mev_t energy_scale = 1000.0);
 
