@@ -236,6 +236,7 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     const BinSettings energy_range_bins(1600, -1600, 1600);
     const BinSettings q2_bins(2000, 0, 1000);
     const BinSettings count_bins(50, 0, 50);
+    const BinSettings tof_bins(1000, -50, 50);
 
     AddHistogram("pid", "PID Bananas", "Cluster Energy [MeV]", "Veto Energy [MeV]", energy_bins, veto_bins);
     AddHistogram("particle_types", "Identified particles", "Particle Type", "#", particle_bins);
@@ -245,6 +246,28 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     AddHistogram("tagger_energy", "Tagger Energy", "Photon Beam Energy [MeV]", "#", tagger_bins);
     AddHistogram("n_tagged", "Tagger Hits", "Tagger Hits / event", "#", ntaggerhits_bins);
     AddHistogram("cb_esum", "CB Energy Sum", "E [MeV]", "#", energy_bins);
+
+    AddHistogram("proton_id", "TOF vs. Cluster Energy vs. Cluster Size", "Cluster size", "Cluster Energy [GeV]",
+                 "TOF [ns]", iterations_bins, BinSettings(500, 0, 1000), BinSettings(400, -100, 100));
+    AddHistogram("tof_proton", "TOF proton", "#", "TOF [ns]", tof_bins);
+    AddHistogram("E_vs_tof", "Energy vs. TOF", "TOF [ns]", "Energy [MeV]", tof_bins, BinSettings(1000, 0, 1000));
+    AddHistogram("E_vs_tof_veto", "Energy vs. TOF w/ Veto", "TOF [ns]", "Energy [MeV]", tof_bins, BinSettings(1000, 0, 1000));
+    AddHistogram("E/cl_vs_tof", "Energy/Cluster Size vs. TOF Veto", "TOF [ns]", "Energy/Cluster Size [MeV]", tof_bins,
+                 BinSettings(1000, 0, 1000));
+    AddHistogram("E/cl_vs_tof_veto", "Energy/Cluster Size vs. TOF w/ Veto", "TOF [ns]", "Energy/Cluster Size [MeV]",
+                 tof_bins, BinSettings(1000, 0, 1000));
+    AddHistogram("Ecenter/cl_vs_tof", "Central Cluster Energy/Cluster Size vs. TOF Veto", "TOF [ns]",
+                 "Energy/Cluster Size [MeV]", tof_bins, BinSettings(1000, 0, 1000));
+    AddHistogram("Ecenter/cl_vs_tof_veto", "Central Cluster Energy/Cluster Size vs. TOF w/ Veto", "TOF [ns]",
+                 "Energy/Cluster Size [MeV]", tof_bins, BinSettings(1000, 0, 1000));
+    AddHistogram("proton_id_BaF", "Energy/Cluster Size vs. TOF", "TOF [ns]", "Energy/Cluster Size [MeV]", tof_bins,
+                 BinSettings(800, 0, 800));
+    AddHistogram("proton_id_PbWO", "Energy/Cluster Size vs. TOF", "TOF [ns]", "Energy/Cluster Size [MeV]", tof_bins,
+                 BinSettings(800, 0, 800));
+    AddHistogram("proton_energies", "Short Energy vs. Cluster Energy", "Cluster [MeV]", "Short [MeV]",
+                 energy_bins, theta_bins);
+    AddHistogram("proton_psa", "PSA Angle vs. PSA Radius", "PSA Radius [MeV]", "PSA Angle [#circ]",
+                 energy_bins, theta_bins);
 
     AddHistogram("q2_dist_before", "q^{2} Distribution before KinFit", "q^{2} [MeV]", "#", q2_bins);
     AddHistogram("q2_dist_after", "q^{2} Distribution after KinFit", "q^{2} [MeV]", "#", q2_bins);
@@ -323,7 +346,7 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     AddHistogram("missing_mass_fit_cut", "Missing Mass Proton fit after Cuts", "m_{miss} [MeV]", "#", energy_bins);
     AddHistogram("proton_angle_TAPS_expected_cut", "Opening Angle reconstr. Cluster_{TAPS} - expected proton after Cuts",
                  "opening angle [#circ]", "#", angle_bins);
-    AddHistogram("energy_vs_momentum_z_balance_cut", "Energy vs. p_{z} balance after Ctus", "p_{z} [GeV]", "Energy [GeV]",
+    AddHistogram("energy_vs_momentum_z_balance_cut", "Energy vs. p_{z} balance after Cuts", "p_{z} [GeV]", "Energy [GeV]",
                  energy_range_bins, energy_range_bins);
     AddHistogram("energy_vs_momentum_z_balance_fit_cut", "Energy vs. p_{z} balance fit after Ctus", "p_{z} [GeV]",
                  "Energy [GeV]", energy_range_bins, energy_range_bins);
@@ -498,7 +521,7 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
 
 void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 {
-    for (auto& track : event.Reconstructed().Tracks()) {
+    for (const auto& track : event.Reconstructed().Tracks()) {
         prompt["pid"]->Fill(track->ClusterEnergy(), track->VetoEnergy());
     }
 
@@ -536,6 +559,44 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
             is_prompt = false;
         else
             continue;
+
+        // proton tests (TOF, PSA)
+        for (auto& track : event.Reconstructed().Tracks()) {
+            double tof = taggerhit->Time() - track->Time();
+            double shortE = track->ShortEnergy(), clusterE = track->ClusterEnergy();
+            const double r2d = TMath::RadToDeg();
+            if (is_prompt) {
+                if (track->Detector() & ant::detector_t::anyTAPS) {
+                    dynamic_cast<TH3D*>(prompt["proton_id"])->Fill(track->ClusterSize(), clusterE, tof);
+                    prompt["proton_energies"]->Fill(clusterE, shortE);
+                    prompt["E_vs_tof"]->Fill(tof, clusterE);
+                    prompt["E/cl_vs_tof"]->Fill(tof, clusterE/track->ClusterSize());
+                    if (track->Detector() & detector_t::Veto) {
+                        prompt["E_vs_tof_veto"]->Fill(tof, clusterE);
+                        prompt["E/cl_vs_tof_veto"]->Fill(tof, clusterE/track->ClusterSize());
+                    }
+                    if (track->Theta()*TMath::RadToDeg() > 5.)
+                        prompt["proton_id_BaF"]->Fill(tof, clusterE/track->ClusterSize());
+                    else
+                        prompt["proton_id_PbWO"]->Fill(tof, clusterE/track->ClusterSize());
+                    //prompt["Ecenter/cl_vs_tof"]->Fill(tof, track->CentralCrystal()/track->ClusterSize());
+                    //prompt["Ecenter/cl_vs_tof_veto",]->Fill(tof, track->CentralCrystal()/track->ClusterSize());
+                    prompt["proton_psa"]->Fill(sqrt(shortE*shortE + clusterE*clusterE), atan2(clusterE, shortE)*r2d);
+                } else if (track->Detector() & detector_t::anyCB) {
+                    dynamic_cast<TH3D*>(random["proton_id"])->Fill(track->ClusterSize(), clusterE, tof);
+                    random["proton_energies"]->Fill(clusterE, shortE);
+                    random["E_vs_tof"]->Fill(tof, clusterE);
+                    random["E/cl_vs_tof"]->Fill(tof, clusterE/track->ClusterSize());
+                    if (track->Detector() & detector_t::PID) {
+                        random["E_vs_tof_veto"]->Fill(tof, clusterE);
+                        random["E/cl_vs_tof_veto"]->Fill(tof, clusterE/track->ClusterSize());
+                    }
+                    //random["Ecenter/cl_vs_tof"]->Fill(tof, track->CentralCrystal()/track->ClusterSize());
+                    //random["Ecenter/cl_vs_tof_veto",]->Fill(tof, track->CentralCrystal()/track->ClusterSize());
+                    random["proton_psa"]->Fill(sqrt(shortE*shortE + clusterE*clusterE), atan2(clusterE, shortE)*r2d);
+                }
+            }
+        }
 
         // make sure the correct histogram will be filled
         HistList& h = is_prompt ? prompt : random;
@@ -608,6 +669,9 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
                 std::iter_swap(it, particles.end()-2);
                 break;
             }
+        h["tof_proton"]->Fill(taggerhit->Time() - particles.back().Tracks().front()->Time());
+        //prompt["E_vs_tof"]->Fill(taggerhit->Time() - particles.back().Tracks().front()->Time(),
+        //                         particles.back().Tracks().front()->ClusterEnergy());
 
         const TLorentzVector target(0., 0., 0., ParticleTypeDatabase::Proton.Mass());
         TLorentzVector balanceP4 = taggerhit->PhotonBeam() + target;
