@@ -244,7 +244,7 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     AddHistogram("tagger_spectrum", "Tagger Spectrum", "Photon Beam Energy [MeV]", "#", tagger_bins);
     AddHistogram("tagger_time", "Tagger Time", "Tagger Time [ns]", "#", energy_range_bins);
     AddHistogram("tagger_energy", "Tagger Energy", "Photon Beam Energy [MeV]", "#", tagger_bins);
-    AddHistogram("n_tagged", "Tagger Hits", "Tagger Hits / event", "#", ntaggerhits_bins);
+    AddHistogram("n_tagged", "Tagger Hits", "Tagger Hits / event", "#", count_bins);
     AddHistogram("cb_esum", "CB Energy Sum", "E [MeV]", "#", energy_bins);
 
     AddHistogram("proton_id", "TOF vs. Cluster Energy vs. Cluster Size", "Cluster size", "Cluster Energy [GeV]",
