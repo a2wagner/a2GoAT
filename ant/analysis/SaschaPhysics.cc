@@ -241,6 +241,8 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     AddHistogram("pid", "PID Bananas", "Cluster Energy [MeV]", "Veto Energy [MeV]", energy_bins, veto_bins);
     AddHistogram("particle_types", "Identified particles", "Particle Type", "#", particle_bins);
     AddHistogram("n_part", "Number of particles", "#particles", "#", particle_bins);
+    AddHistogram("n_cluster_cb", "Number of Clusters in CB", "#particles", "#", particle_bins);
+    AddHistogram("n_cluster_taps", "Number of Clusters in TAPS", "#particles", "#", particle_bins);
     AddHistogram("tagger_spectrum", "Tagger Spectrum", "Photon Beam Energy [MeV]", "#", tagger_bins);
     AddHistogram("tagger_time", "Tagger Time", "Tagger Time [ns]", "#", energy_range_bins);
     AddHistogram("tagger_energy", "Tagger Energy", "Photon Beam Energy [MeV]", "#", tagger_bins);
@@ -401,6 +403,9 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
                                       "number of " + t->PrintName() + "/ event",
                                       "", BinSettings(16,0,16), "n_" + t->PrintName());
 
+    // histogram to count how many events passed the different selection criteria
+    accepted_events = HistFac.makeTH1D("Accepted events", "condition", "#events", BinSettings(10), "accepted_events");
+
     // prepare invM histograms for different q2 ranges
     int start_range = 0;
     while (start_range < int(im_q2_upper_bound)) {
@@ -529,14 +534,25 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
 
 void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 {
+    accepted_events->Fill("all events", 1);
+
     prompt["cb_esum"]->Fill(event.Reconstructed().TriggerInfos().CBEenergySum());
 
     if (event.Reconstructed().TriggerInfos().CBEenergySum() < cb_esum)
         return;
 
+    accepted_events->Fill("CB Esum", 1);
+
     for (const auto& track : event.Reconstructed().Tracks()) {
         prompt["pid"]->Fill(track->ClusterEnergy(), track->VetoEnergy());
     }
+
+    // determine #clusters per event per detector
+    size_t nCB = 0, nTAPS = 0;
+    std::for_each(event.Reconstructed().Tracks().begin(), event.Reconstructed().Tracks().end(),
+                  [&nCB, &nTAPS](const auto& track){ track->Detector() & detector_t::anyCB ? nCB++ : nTAPS++; });
+    prompt["n_cluster_cb"]->Fill(nCB);
+    prompt["n_cluster_taps"]->Fill(nTAPS);
 
     for (auto& particle : event.Reconstructed().Particles().GetAll()) {
         prompt["particle_types"]->Fill(particle->Type().PrintName().c_str(), 1);
@@ -569,6 +585,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
             is_prompt = false;
         else
             continue;
+
+        accepted_events->Fill("Tagger time", 1);
 
         is_prompt ? prompt_n_tagger++ : random_n_tagger++;
 
@@ -636,6 +654,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         if (nParticles != nFinalState)
             continue;
 
+        accepted_events->Fill("n_FS", 1);
+
         // check if we have the right amount of leptons, photons and protons
         unsigned short ne = 0, ng = 0, np = 0;
         for (auto it = particles.begin(); it != particles.end(); ++it) {
@@ -648,6 +668,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         }
         if (ne != 2 || ng != 1 || np != 1)
             continue;
+
+        accepted_events->Fill("#part", 1);
 
         // check theta distribution in dependence of the number of clusters
         TrackPtr tr;
@@ -695,6 +717,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         if (pid1 == pid2)
             continue;
         h["q2_im_pid_cut"]->Fill(etap.M(), q2);
+        accepted_events->Fill("PID Cut", 1);
 
         h["tof_proton"]->Fill(taggerhit->Time() - particles.back().Tracks().front()->Time());
         //prompt["E_vs_tof"]->Fill(taggerhit->Time() - particles.back().Tracks().front()->Time(),
@@ -803,6 +826,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 
         if (missM < 880. && missM > 1130.)
             continue;
+        accepted_events->Fill("miss mass", 1);
+
         h["q2_im_miss_mass"]->Fill(etap.M(), q2);
         h["q2_im_before_fit"]->Fill(etap.M(), q2);
 /*        // Cut on missing mass of the proton
@@ -825,6 +850,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
             //cout << result << endl;
             continue;
         }
+
+        accepted_events->Fill("KinFit", 1);
 
         for (const auto& it_map : result.Variables) {
             const string& varname = it_map.first;
@@ -873,6 +900,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         if (result.ChiSquare > 10.)
             return;
         h["q2_im_chi2_cut"]->Fill(etap_fit.M(), q2_after);
+
+        accepted_events->Fill("#chi^{2} cut", 1);
 
         // fill the invM histograms for different q2 ranges
         if (q2_after < im_q2_upper_bound) {

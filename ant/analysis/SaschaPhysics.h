@@ -201,6 +201,8 @@ protected:
 
     std::map<const ParticleTypeDatabase::Type*, TH1D*> numParticleType;
 
+    TH1D* accepted_events;
+
     std::map<std::string, TH1*> pulls_prompt;
     std::map<std::string, TH1*> pulls_random;
     std::map<std::string, TH1*> pulls_diff;
