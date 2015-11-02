@@ -537,8 +537,6 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         prompt["particle_types"]->Fill(particle->Type().PrintName().c_str(), 1);
     }
 
-    prompt["n_tagged"]->Fill(event.Reconstructed().TaggerHits().size());
-
     prompt["cb_esum"]->Fill(event.Reconstructed().TriggerInfos().CBEenergySum());
 
     for (auto& t : ParticleTypeDatabase::DetectableTypes()) {
@@ -548,6 +546,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     }
 
     TaggerHistList tagger_hits;
+    size_t prompt_n_tagger = 0, random_n_tagger = 0;
     //static size_t count = 0;
     const bool MC = false;
     if (MC)
@@ -567,6 +566,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
             is_prompt = false;
         else
             continue;
+
+        is_prompt ? prompt_n_tagger++ : random_n_tagger++;
 
         // proton tests (TOF, PSA)
         for (auto& track : event.Reconstructed().Tracks()) {
@@ -900,6 +901,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
                 h["crystals_vs_ecl_uncharged_cut"]->Fill(tr->ClusterEnergy(), tr->ClusterSize());
         }
     }
+    prompt["n_tagged"]->Fill(prompt_n_tagger);
+    random["n_tagged"]->Fill(random_n_tagger);
 }
 
 void ant::analysis::SaschaPhysics::Finish()
