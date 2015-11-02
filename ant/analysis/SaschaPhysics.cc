@@ -529,6 +529,11 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
 
 void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 {
+    prompt["cb_esum"]->Fill(event.Reconstructed().TriggerInfos().CBEenergySum());
+
+    if (event.Reconstructed().TriggerInfos().CBEenergySum() < cb_esum)
+        return;
+
     for (const auto& track : event.Reconstructed().Tracks()) {
         prompt["pid"]->Fill(track->ClusterEnergy(), track->VetoEnergy());
     }
@@ -536,8 +541,6 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     for (auto& particle : event.Reconstructed().Particles().GetAll()) {
         prompt["particle_types"]->Fill(particle->Type().PrintName().c_str(), 1);
     }
-
-    prompt["cb_esum"]->Fill(event.Reconstructed().TriggerInfos().CBEenergySum());
 
     for (auto& t : ParticleTypeDatabase::DetectableTypes()) {
         try {
@@ -940,6 +943,9 @@ void ant::analysis::SaschaPhysics::GetParticles(const ant::Event& event, particl
 {
     // example of how to collect particles in a user defined way
     for (const auto& track : event.Reconstructed().Tracks()) {
+        // ignore particles below set cluster energy threshold
+        if (track->ClusterEnergy() < cluster_thresh)
+            continue;
         if (track->Detector() & ant::detector_t::NaI) {
             nParticlesCB++;
             //if (track->VetoEnergy() > 0.)  // PID entry? --> charged
@@ -958,13 +964,6 @@ void ant::analysis::SaschaPhysics::GetParticles(const ant::Event& event, particl
     //std::cout << track->Detector() << std::endl;
     }
     nParticles = nParticlesCB + nParticlesTAPS;
-
-/*    // sort out particles with an energy of less than 10 MeV
-    for (particle_it it = particles->begin(); it != particles->end();)
-        if (it->E() < 10.)
-            it = particles->erase(it);
-        else
-            ++it;*/
 }
 
 void ant::analysis::SaschaPhysics::GetTrueParticles(const ant::Event& event, particle_vector& particles)

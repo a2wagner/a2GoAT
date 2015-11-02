@@ -192,6 +192,10 @@ protected:
     static constexpr size_t nFinalState = 4;
     //const double IM = ParticleTypeDatabase::EtaPrime.Mass();
     static constexpr double IM = 957.78;
+    // threshold for cluster energies
+    static constexpr double cluster_thresh = 25.;
+    // threshold for CB energy sum
+    static constexpr double cb_esum = 500.;
 
     size_t nParticles, nParticlesCB, nParticlesTAPS;
 
