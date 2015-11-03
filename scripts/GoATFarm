@@ -107,8 +107,8 @@ do
 
     #now make the job file
     echo "#!/bin/sh" > $JobFile;
-    echo "#PBS -N GoAT_${USER}_$number" >> $JobFile;
-    echo "#PBS -m abe" >> $JobFile;
+    echo "#PBS -N GoAT_$number" >> $JobFile;
+    echo "#PBS -m a" >> $JobFile;
     echo "#PBS -M $MailAddress"  >> $JobFile;
     echo "#PBS -V"  >> $JobFile;
     echo "#PBS -l ncpus=3,walltime=${WALLTIME}" >> $JobFile;
