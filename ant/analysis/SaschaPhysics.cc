@@ -548,11 +548,24 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     }
 
     // determine #clusters per event per detector
-    size_t nCB = 0, nTAPS = 0;
+    /*size_t nCB = 0, nTAPS = 0;
     std::for_each(event.Reconstructed().Tracks().begin(), event.Reconstructed().Tracks().end(),
                   [&nCB, &nTAPS](const auto& track){ track->Detector() & detector_t::anyCB ? nCB++ : nTAPS++; });
     prompt["n_cluster_cb"]->Fill(nCB);
-    prompt["n_cluster_taps"]->Fill(nTAPS);
+    prompt["n_cluster_taps"]->Fill(nTAPS);*/
+
+    // get the tracks in CB and TAPS
+    TrackList tracksCB;
+    TrackList tracksTAPS;
+    GetTracks(event, tracksCB, tracksTAPS);
+    //printf("Particles found: %zu CB, %zu TAPS\n", tracksCB.size(), tracksTAPS.size());
+    prompt["n_cluster_cb"]->Fill(tracksCB.size());
+    prompt["n_cluster_taps"]->Fill(tracksTAPS.size());
+
+    if (tracksCB.size() + tracksTAPS.size() != nFinalState)
+        return;
+
+    accepted_events->Fill("#part FS", 1);
 
     for (auto& particle : event.Reconstructed().Particles().GetAll()) {
         prompt["particle_types"]->Fill(particle->Type().PrintName().c_str(), 1);
@@ -563,6 +576,9 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
             numParticleType.at(t)->Fill(event.Reconstructed().Particles().Get(*t).size());
         } catch (...) {}
     }
+
+    particle_vector particles;
+    bool ident = IdentifyTracks(tracksCB, tracksTAPS, particles);
 
     TaggerHistList tagger_hits;
     size_t prompt_n_tagger = 0, random_n_tagger = 0;
@@ -651,10 +667,10 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         nParticles = nParticlesCB = nParticlesTAPS = 0;
         particle_vector particles;
         GetParticles(event, particles);
-        if (nParticles != nFinalState)
+        /*if (nParticles != nFinalState)
             continue;
 
-        accepted_events->Fill("n_FS", 1);
+        accepted_events->Fill("n_FS", 1);*/
 
         // check if we have the right amount of leptons, photons and protons
         unsigned short ne = 0, ng = 0, np = 0;
@@ -966,6 +982,60 @@ void ant::analysis::SaschaPhysics::ShowResult()
 
     // draw all random subtracted histograms
     //diff.Draw();
+}
+
+void ant::analysis::SaschaPhysics::GetTracks(const Event& event, TrackList& tracksCB, TrackList& tracksTAPS)
+{
+    for (const auto& track : event.Reconstructed().Tracks()) {
+        // ignore particles below set cluster energy threshold
+        if (track->ClusterEnergy() < cluster_thresh)
+            continue;
+        if (track->Detector() & detector_t::anyCB)
+            tracksCB.push_back(track);
+        else if (track->Detector() & detector_t::anyTAPS)
+            tracksTAPS.push_back(track);
+    }
+}
+
+bool ant::analysis::SaschaPhysics::IdentifyTracks(const TrackList& tracksCB, const TrackList& tracksTAPS,
+                                                  particle_vector& particles)
+{
+    bool success = false;
+    size_t nCB = tracksCB.size(), nCharged = 0;
+    if (nCB + tracksTAPS.size() != nFinalState)
+        return success;
+    if (nCB == 3) {
+        for (const auto& track : tracksCB) {
+            if (track->Detector() & detector_t::PID)
+                particles.push_back(Particle(ParticleTypeDatabase::eMinus, track));
+            else
+                particles.push_back(Particle(ParticleTypeDatabase::Photon, track));
+        }
+        particles.push_back(Particle(ParticleTypeDatabase::Proton, tracksTAPS.front()));
+        success = true;
+    } else if (nCB == 2) {
+        for (const auto& track : tracksCB) {
+            if (track->Detector() & detector_t::PID) {
+                particles.push_back(Particle(ParticleTypeDatabase::eMinus, track));
+                nCharged++;
+            } else
+                particles.push_back(Particle(ParticleTypeDatabase::Photon, track));
+        }
+        if (nCharged == 0)
+            return success;
+        double time_track0 = tracksTAPS.at(0)->Time(), time_track1 = tracksTAPS.at(1)->Time();
+        unsigned short proton_id = 0;
+        if (time_track1 > time_track0)
+            proton_id = 1;
+        if (nCharged < 2)
+            particles.push_back(Particle(ParticleTypeDatabase::eMinus, tracksTAPS.at(1-proton_id)));
+        else
+            particles.push_back(Particle(ParticleTypeDatabase::Photon, tracksTAPS.at(1-proton_id)));
+        particles.push_back(Particle(ParticleTypeDatabase::Proton, tracksTAPS.at(proton_id)));
+        success = true;
+    }
+
+    return success;
 }
 
 void ant::analysis::SaschaPhysics::GetParticles(const ant::Event& event, particle_vector& particles)

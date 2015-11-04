@@ -217,6 +217,8 @@ protected:
     void FillIM(TH1* h, const std::vector<FitParticle>& final_state);
 
     // collect particles
+    void GetTracks(const Event& event, TrackList& tracksCB, TrackList& tracksTAPS);
+    bool IdentifyTracks(const TrackList& tracksCB, const TrackList& tracksTAPS, particle_vector& particles);
     void GetParticles(const ant::Event& event, particle_vector& particles);
     void GetTrueParticles(const ant::Event& event, particle_vector& particles);
 
