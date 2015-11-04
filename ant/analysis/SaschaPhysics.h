@@ -226,6 +226,9 @@ protected:
     FitParticle beam;
     std::vector<FitParticle> final_state;
     FitParticle proton;
+    // eta' fitter
+    APLCON etap_fit;
+    std::vector<FitParticle> etap_fs;
 
 
 public:

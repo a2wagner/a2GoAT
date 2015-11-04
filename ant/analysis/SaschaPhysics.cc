@@ -390,7 +390,9 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     random_window1(-40, -15),
     random_window2(15, 40),
     fitter("SaschaPhysics"),
-    final_state(nFinalState)
+    final_state(nFinalState),
+    etap_fit("eta' fitter"),
+    etap_fs(3)
 {
     cout << "Eta' Dalitz Physics:\n";
     cout << "Prompt window: " << prompt_window << " ns\n";
@@ -530,10 +532,34 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
 
     cout.precision(3);
     APLCON::PrintFormatting::Width = 11;
+
+    // eta' fitter
+    etap_fit.LinkVariable("Lepton1", etap_fs[0].Link(), etap_fs[0].LinkSigma());
+    etap_fit.LinkVariable("Lepton2", etap_fs[1].Link(), etap_fs[1].LinkSigma());
+    etap_fit.LinkVariable("Photon", etap_fs[2].Link(), etap_fs[2].LinkSigma());
+    vector<string> etap_names = {"Lepton1", "Lepton2", "Photon"};
+    // Constraint: Invariant mass of nPhotons equals constant IM,
+    // make lambda catch also this with [&] specification
+    auto etapIM = [&] (const vector<vector<double>>& particles) -> double
+    {
+        TLorentzVector sum(0,0,0,0);
+        sum += FitParticle::Make(particles[0], ParticleTypeDatabase::eMinus.Mass());
+        sum += FitParticle::Make(particles[1], ParticleTypeDatabase::eMinus.Mass());
+        sum += FitParticle::Make(particles[2], ParticleTypeDatabase::Photon.Mass());
+
+        return sum.M() - IM;
+    };
+    etap_fit.AddConstraint("IM", etap_names, etapIM);
+    // iteration steps
+    APLCON::Fit_Settings_t etap_settings = etap_fit.GetSettings();
+    etap_settings.MaxIterations = 10;
+    etap_fit.SetSettings(etap_settings);
 }
 
 void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 {
+    const TLorentzVector target(0., 0., 0., ParticleTypeDatabase::Proton.Mass());
+
     accepted_events->Fill("all events", 1);
 
     prompt["cb_esum"]->Fill(event.Reconstructed().TriggerInfos().CBEenergySum());
@@ -562,11 +588,11 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     prompt["n_cluster_cb"]->Fill(tracksCB.size());
     prompt["n_cluster_taps"]->Fill(tracksTAPS.size());
 
-    if (tracksCB.size() + tracksTAPS.size() != nFinalState)
+/*    if (tracksCB.size() + tracksTAPS.size() != nFinalState)
         return;
 
     accepted_events->Fill("#part FS", 1);
-
+*/
     for (auto& particle : event.Reconstructed().Particles().GetAll()) {
         prompt["particle_types"]->Fill(particle->Type().PrintName().c_str(), 1);
     }
@@ -578,7 +604,50 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     }
 
     particle_vector particles;
-    bool ident = IdentifyTracks(tracksCB, tracksTAPS, particles);
+    //bool ident = IdentifyTracks(tracksCB, tracksTAPS, particles);
+
+    /* Achim's proposed test */
+    if (tracksCB.size() != 3)
+        return;
+    accepted_events->Fill("#tracks CB", 1);
+    size_t nCharged = 0;
+    for (const auto& track : tracksCB) {
+        if (track->Detector() & detector_t::PID) {
+            particles.push_back(Particle(ParticleTypeDatabase::eMinus, track));
+            nCharged++;
+        } else
+            particles.push_back(Particle(ParticleTypeDatabase::Photon, track));
+    }
+    if (nCharged != 2)
+        return;
+    accepted_events->Fill("2 leptons", 1);
+    // swap the photon at the third (last) position
+    for (auto it = particles.begin(); it != particles.end()-1; ++it)
+        if (it->Type() == ParticleTypeDatabase::Photon) {
+            std::iter_swap(it, particles.end()-1);
+            break;
+        }
+    TLorentzVector tmp_etap(0., 0., 0., 0.);
+    for (auto it = particles.cbegin(); it != particles.cend(); ++it)
+        tmp_etap += *it;
+
+    auto etap_it = etap_fs.begin();
+    for (const auto& p : particles)
+        (etap_it++)->SetFromVector(p);
+
+    const APLCON::Result_t& etap_res = etap_fit.DoFit();
+    if (etap_res.Status != APLCON::Result_Status_t::Success)
+        return;
+    accepted_events->Fill("fit #eta'", 1);
+    // Cut on chi^2
+    if (etap_res.ChiSquare > 15.)
+        return;
+    accepted_events->Fill("#chi^{2} #eta'", 1);
+    TLorentzVector fit_etap(0., 0., 0., 0.);
+    fit_etap += FitParticle::Make(etap_fs[0], ParticleTypeDatabase::eMinus.Mass());
+    fit_etap += FitParticle::Make(etap_fs[1], ParticleTypeDatabase::eMinus.Mass());
+    fit_etap += FitParticle::Make(etap_fs[2], ParticleTypeDatabase::Photon.Mass());
+    /* finished proton test, next test tagger hit combinations */
 
     TaggerHistList tagger_hits;
     size_t prompt_n_tagger = 0, random_n_tagger = 0;
@@ -644,6 +713,26 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
             }
         }
 
+        /* Achim's proposed test, continued */
+        //double best_chi2 = 1000.;
+        Particle proton_candidate(ParticleTypeDatabase::Proton, 0., 0., 0.);
+        TLorentzVector expected_proton = taggerhit->PhotonBeam() + target - fit_etap;
+        bool proton_found = false;
+        for (const auto& track : tracksTAPS) {
+            proton_candidate = Particle(ParticleTypeDatabase::Proton, track);
+            if (expected_proton.Angle(proton_candidate.Vect())*TMath::RadToDeg() < 4.) {
+                if (proton_found)
+                    accepted_events->Fill("2nd proton", 1);
+                proton_found = true;
+                break;
+            }
+        }
+        if (!proton_found)
+            continue;
+        accepted_events->Fill("proton found", 1);
+        particles.push_back(proton_candidate);
+        /* finished proton test */
+
         // make sure the correct histogram will be filled
         HistList& h = is_prompt ? prompt : random;
 
@@ -665,8 +754,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 //            continue;
 
         nParticles = nParticlesCB = nParticlesTAPS = 0;
-        particle_vector particles;
-        GetParticles(event, particles);
+        //particle_vector particles;
+        //GetParticles(event, particles);
         /*if (nParticles != nFinalState)
             continue;
 
@@ -739,7 +828,6 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         //prompt["E_vs_tof"]->Fill(taggerhit->Time() - particles.back().Tracks().front()->Time(),
         //                         particles.back().Tracks().front()->ClusterEnergy());
 
-        const TLorentzVector target(0., 0., 0., ParticleTypeDatabase::Proton.Mass());
         TLorentzVector balanceP4 = taggerhit->PhotonBeam() + target;
         //for (const auto& p : particles)
         //    balanceP4 -= p;
