@@ -1111,7 +1111,7 @@ bool ant::analysis::SaschaPhysics::IdentifyTracks(const TrackList& tracksCB, con
         }
         if (nCharged == 0)
             return success;
-        double time_track0 = tracksTAPS.at(0)->Time(), time_track1 = tracksTAPS.at(1)->Time();
+        double time_track0 = abs(tracksTAPS.at(0)->Time()), time_track1 = abs(tracksTAPS.at(1)->Time());
         unsigned short proton_id = 0;
         if (time_track1 > time_track0)
             proton_id = 1;
