@@ -201,9 +201,26 @@ protected:
 
     std::map<const ParticleTypeDatabase::Type*, TH1D*> numParticleType;
 
+    // store true particle information in case of MC (if used)
+    particle_vector true_particles;
+
     // histogram to keep track of efficencies
     TH1D* accepted_events;
     // different MC true information
+    TH2D* eplus_true_theta_vs_energy;
+    TH2D* eminus_true_theta_vs_energy;
+    TH2D* photon_true_theta_vs_energy;
+    TH2D* proton_true_theta_vs_energy;
+    TH2D* true_open_angle_vs_q2;
+    TH1D* opening_angle_leptons_true;
+    TH2D* opening_angle_vs_photon_energy_true;
+    TH2D* lepton_energies_true;
+    TH1D* energy_lepton1_true;
+    TH1D* energy_lepton2_true;
+    TH2D* n_cluster_cb_vs_q2;
+    TH2D* n_cluster_taps_vs_q2;
+    TH2D* n_cluster_cb_vs_open_angle;
+    TH2D* n_cluster_taps_vs_open_angle;
 
     std::map<std::string, TH1*> pulls_prompt;
     std::map<std::string, TH1*> pulls_random;
@@ -226,6 +243,12 @@ protected:
 
     void sort_particles(particle_vector&);
     void fill_MC_true(const ParticleList&, const size_t, const size_t);
+    const particle_vector get_MC_true_particles(const ParticleList&);
+    const Particle get_true_particle(const ParticleList&, const size_t);
+    const Particle get_true_positron(const ParticleList&);
+    const Particle get_true_electron(const ParticleList&);
+    const Particle get_true_photon(const ParticleList&);
+    const Particle get_true_proton(const ParticleList&);
     void proton_tests(const TrackList&, const TaggerHitPtr);
 
     APLCON fitter;
