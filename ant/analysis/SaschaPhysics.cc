@@ -243,6 +243,16 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     AddHistogram("n_part", "Number of particles", "#particles", "#", particle_bins);
     AddHistogram("n_cluster_cb", "Number of Clusters in CB", "#particles", "#", particle_bins);
     AddHistogram("n_cluster_taps", "Number of Clusters in TAPS", "#particles", "#", particle_bins);
+    AddHistogram("n_cluster_cb_vs_q2", "Number of Clusters in CB vs. q^{2}", "q^{2} [MeV]", "#clusters",
+                 q2_bins, BinSettings(5));
+    AddHistogram("n_cluster_taps_vs_q2", "Number of Clusters in TAPS vs. q^{2}", "q^{2} [MeV]", "#clusters",
+                 q2_bins, BinSettings(5));
+    AddHistogram("n_cluster_cb_vs_open_angle", "Number of Clusters in CB vs. Lepton Opening Angle", "Angle [#circ]",
+                 "#clusters", theta_bins, BinSettings(5));
+    AddHistogram("n_cluster_taps_vs_open_angle", "Number of Clusters in TAPS vs. Lepton Opening Angle", "Angle [#circ]",
+                 "#clusters", theta_bins, BinSettings(5));
+    AddHistogram("true_open_angle_vs_q2", "Lepton Opening Angle vs. q^{2}", "q^{2} [MeV]", "Angle [#circ]",
+                 q2_bins, theta_bins);
     AddHistogram("tagger_spectrum", "Tagger Spectrum", "Photon Beam Energy [MeV]", "#", tagger_bins);
     AddHistogram("tagger_time", "Tagger Time", "Tagger Time [ns]", "#", energy_range_bins);
     AddHistogram("tagger_energy", "Tagger Energy", "Photon Beam Energy [MeV]", "#", tagger_bins);
@@ -315,6 +325,11 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     AddHistogram("energy_lepton2_true", "True energy 2nd lepton", "E_{true} [MeV]", "#", energy_bins);
     AddHistogram("energy_photon", "Energy photon", "E [MeV]", "#", energy_bins);
     AddHistogram("energy_photon_true", "True energy photon", "E_{true} [MeV]", "#", energy_bins);
+    AddHistogram("eplus_energy_true", "True energy e^{+}", "E_{true} [MeV]", "#", energy_bins);
+    AddHistogram("eplus_theta_true", "True #vartheta energy e^{+}", "#vartheta_{true} [#circ]", "#", theta_bins);
+    AddHistogram("eminus_energy_true", "True energy e^{-}", "E_{true} [MeV]", "#", energy_bins);
+    AddHistogram("eminus_theta_true", "True #vartheta energy e^{-}", "#vartheta_{true} [#circ]", "#", theta_bins);
+    AddHistogram("photon_theta_true", "True #vartheta energy photon", "#vartheta_{true} [#circ]", "#", theta_bins);
     // proton checks
     AddHistogram("proton_energy", "Energy proton", "E [MeV]", "#", energy_bins);
     AddHistogram("proton_energy_true", "Energy proton true", "E [MeV]", "#", energy_bins);
@@ -560,6 +575,20 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 {
     const TLorentzVector target(0., 0., 0., ParticleTypeDatabase::Proton.Mass());
 
+    // do a q2 preselection
+    Particle ePlus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+    Particle eMinus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+    for (const auto& p : event.MCTrue().Particles().GetAll()) {
+        if (p->Type() == ParticleTypeDatabase::eMinus)
+            eMinus_true = Particle(*p);
+        else if (p->Type() == ParticleTypeDatabase::ePlus)
+            ePlus_true = Particle(*p);
+    }
+    //double lepton_open_angle_true = ePlus_true.Angle(eMinus_true.Vect())*TMath::RadToDeg();
+    double q2_true = (ePlus_true + eMinus_true).M();
+    if (q2_true < 50.)
+        return;
+
     accepted_events->Fill("all events", 1);
 
     prompt["cb_esum"]->Fill(event.Reconstructed().TriggerInfos().CBEenergySum());
@@ -588,11 +617,49 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     prompt["n_cluster_cb"]->Fill(tracksCB.size());
     prompt["n_cluster_taps"]->Fill(tracksTAPS.size());
 
-/*    if (tracksCB.size() + tracksTAPS.size() != nFinalState)
-        return;
+    // true MC tests
+    if (!(event.MCTrue().Particles().GetAll().empty())) {
+        // use the first particle in the particles vector as a placeholder
+        Particle ePlus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+        Particle eMinus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+        Particle photon_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+        Particle proton_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+        for (const auto& p : event.MCTrue().Particles().GetAll()) {
+            if (p->Type() == ParticleTypeDatabase::Photon)
+                photon_true = Particle(*p);
+            else if (p->Type() == ParticleTypeDatabase::eMinus)
+                eMinus_true = Particle(*p);
+            else if (p->Type() == ParticleTypeDatabase::ePlus)
+                ePlus_true = Particle(*p);
+            else if (p->Type() == ParticleTypeDatabase::Proton)
+                proton_true = Particle(*p);
+        }
+        if (ePlus_true.Type() == ParticleTypeDatabase::Neutron
+                || eMinus_true.Type() == ParticleTypeDatabase::Neutron
+                || photon_true.Type() == ParticleTypeDatabase::Neutron
+                || proton_true.Type() == ParticleTypeDatabase::Neutron)
+            accepted_events->Fill("wrong MC", 1);
+        double lepton_open_angle_true = ePlus_true.Angle(eMinus_true.Vect())*TMath::RadToDeg();
+        double q2 = (ePlus_true + eMinus_true).M();
+        prompt["energy_photon_true"]->Fill(photon_true.Ek());
+        prompt["proton_energy_true"]->Fill(proton_true.Ek());
+        prompt["eplus_energy_true"]->Fill(ePlus_true.Ek());
+        prompt["eplus_theta_true"]->Fill(ePlus_true.Theta()*TMath::RadToDeg());
+        prompt["eminus_energy_true"]->Fill(eMinus_true.Ek());
+        prompt["eminus_theta_true"]->Fill(eMinus_true.Theta()*TMath::RadToDeg());
+        prompt["photon_theta_true"]->Fill(photon_true.Theta()*TMath::RadToDeg());
+        prompt["true_open_angle_vs_q2"]->Fill(q2, lepton_open_angle_true);
+        prompt["n_cluster_cb_vs_q2"]->Fill(q2, tracksCB.size());
+        prompt["n_cluster_taps_vs_q2"]->Fill(q2, tracksTAPS.size());
+        prompt["n_cluster_cb_vs_open_angle"]->Fill(lepton_open_angle_true, tracksCB.size());
+        prompt["n_cluster_taps_vs_open_angle"]->Fill(lepton_open_angle_true, tracksTAPS.size());
+    }
 
-    accepted_events->Fill("#part FS", 1);
-*/
+//    if (tracksCB.size() + tracksTAPS.size() != nFinalState)
+//        return;
+
+//    accepted_events->Fill("#part FS", 1);
+
     for (auto& particle : event.Reconstructed().Particles().GetAll()) {
         prompt["particle_types"]->Fill(particle->Type().PrintName().c_str(), 1);
     }
@@ -604,7 +671,9 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     }
 
     particle_vector particles;
-    //bool ident = IdentifyTracks(tracksCB, tracksTAPS, particles);
+//    if (!IdentifyTracks(tracksCB, tracksTAPS, particles))
+//        return;
+//    accepted_events->Fill("identification", 1);
 
     /* Achim's proposed test */
     if (tracksCB.size() != 3)
@@ -652,7 +721,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     TaggerHistList tagger_hits;
     size_t prompt_n_tagger = 0, random_n_tagger = 0;
     //static size_t count = 0;
-    const bool MC = false;
+    const bool MC = true;
     if (MC)
         tagger_hits = event.MCTrue().TaggerHits();
     else
@@ -755,8 +824,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 
         nParticles = nParticlesCB = nParticlesTAPS = 0;
         //particle_vector particles;
-        //GetParticles(event, particles);
-        /*if (nParticles != nFinalState)
+        /*GetParticles(event, particles);
+        if (nParticles != nFinalState)
             continue;
 
         accepted_events->Fill("n_FS", 1);*/
@@ -885,8 +954,6 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
                 h["energy_lepton1_true"]->Fill(en_lep1_true);
                 h["energy_lepton2_true"]->Fill(en_lep2_true);
             }
-            h["energy_photon_true"]->Fill(photon_true.Ek());
-            h["proton_energy_true"]->Fill(proton_true.Ek());
         }
 
         double q2_before = (particles[0] + particles[1]).M();
@@ -1111,6 +1178,7 @@ bool ant::analysis::SaschaPhysics::IdentifyTracks(const TrackList& tracksCB, con
         }
         if (nCharged == 0)
             return success;
+        //TODO: Correct for path lengths!
         double time_track0 = abs(tracksTAPS.at(0)->Time()), time_track1 = abs(tracksTAPS.at(1)->Time());
         unsigned short proton_id = 0;
         if (time_track1 > time_track0)
