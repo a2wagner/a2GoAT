@@ -193,9 +193,9 @@ protected:
     //const double IM = ParticleTypeDatabase::EtaPrime.Mass();
     static constexpr double IM = 957.78;
     // threshold for cluster energies
-    static constexpr double cluster_thresh = 25.;
+    static constexpr double CLUSTER_TRESH = 25.;
     // threshold for CB energy sum
-    static constexpr double cb_esum = 500.;
+    static constexpr double CB_ESUM = 500.;
 
     size_t nParticles, nParticlesCB, nParticlesTAPS;
 
@@ -206,6 +206,16 @@ protected:
 
     // histogram to keep track of efficencies
     TH1D* accepted_events;
+    // histograms before prompt / random handling
+    TH1D* cb_esum;
+    TH2D* pid;
+    TH1D* tagger_spectrum;
+    TH1D* tagger_time;
+    TH1D* particle_types;
+    TH1D* n_part;
+    TH1D* n_cluster_cb;
+    TH1D* n_cluster_taps;
+    TH1D* etap_chi2;
     // different MC true information
     TH2D* eplus_true_theta_vs_energy;
     TH2D* eminus_true_theta_vs_energy;
@@ -221,6 +231,7 @@ protected:
     TH2D* n_cluster_taps_vs_q2;
     TH2D* n_cluster_cb_vs_open_angle;
     TH2D* n_cluster_taps_vs_open_angle;
+    TH2D* expected_proton_diff_vs_q2;
 
     std::map<std::string, TH1*> pulls_prompt;
     std::map<std::string, TH1*> pulls_random;

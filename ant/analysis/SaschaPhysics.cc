@@ -16,7 +16,7 @@ using namespace ant;
 TLorentzVector analysis::SaschaPhysics::FitParticle::Make(const std::vector<double>& EkThetaPhi, const Double_t m)
 {
     const double E = EkThetaPhi[0] + m;
-    const Double_t p = sqrt( E*E - m*m );
+    const Double_t p = sqrt(E*E - m*m);
     TVector3 pv(1,0,0);
     pv.SetMagThetaPhi(p, EkThetaPhi[1], EkThetaPhi[2]);
     TLorentzVector l(pv, E);
@@ -219,17 +219,14 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
 {
     pref = prefix + '_';
 
-    const BinSettings energy_bins(1600,0,energy_scale*1.6);
-    const BinSettings tagger_bins(1500,300,1800);
-    const BinSettings ntaggerhits_bins(15);
-    const BinSettings veto_bins(1000,0,10);
-    const BinSettings particle_bins(10,0,10);
-    const BinSettings particlecount_bins(16,0,16);
-    const BinSettings chisquare_bins(100,0,30);
-    const BinSettings probability_bins(100,0,1);
-    const BinSettings iterations_bins(15,0,15);
-    const BinSettings im_bins(200,IM-100,IM+100);
-    const BinSettings vertex_bins(200,-10,10);
+    const BinSettings energy_bins(1600, 0, energy_scale*1.6);
+    const BinSettings tagger_bins(200, 1400, 1600);
+    const BinSettings veto_bins(1000, 0, 10);
+    const BinSettings chisquare_bins(100, 0, 30);
+    const BinSettings probability_bins(100, 0, 1);
+    const BinSettings iterations_bins(15, 0, 15);
+    const BinSettings im_bins(200, IM-100, IM+100);
+    const BinSettings vertex_bins(200, -10, 10);
     const BinSettings theta_bins(720, 0, 180);
     const BinSettings phi_bins(720, 0, 360);
     const BinSettings angle_bins(500, 0, 50);
@@ -238,16 +235,8 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     const BinSettings count_bins(50, 0, 50);
     const BinSettings tof_bins(1000, -50, 50);
 
-    AddHistogram("pid", "PID Bananas", "Cluster Energy [MeV]", "Veto Energy [MeV]", energy_bins, veto_bins);
-    AddHistogram("particle_types", "Identified particles", "Particle Type", "#", particle_bins);
-    AddHistogram("n_part", "Number of particles", "#particles", "#", particle_bins);
-    AddHistogram("n_cluster_cb", "Number of Clusters in CB", "#particles", "#", particle_bins);
-    AddHistogram("n_cluster_taps", "Number of Clusters in TAPS", "#particles", "#", particle_bins);
-    AddHistogram("tagger_spectrum", "Tagger Spectrum", "Photon Beam Energy [MeV]", "#", tagger_bins);
-    AddHistogram("tagger_time", "Tagger Time", "Tagger Time [ns]", "#", energy_range_bins);
     AddHistogram("tagger_energy", "Tagger Energy", "Photon Beam Energy [MeV]", "#", tagger_bins);
     AddHistogram("n_tagged", "Tagger Hits", "Tagger Hits / event", "#", count_bins);
-    AddHistogram("cb_esum", "CB Energy Sum", "E [MeV]", "#", energy_bins);
 
     // proton tests
     //AddHistogram("proton_id", "TOF vs. Cluster Energy vs. Cluster Size", "Cluster size", "Cluster Energy [GeV]",
@@ -287,7 +276,7 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     AddHistogram("lepton_energies", "Lepton Energies", "E(lepton1) [MeV]", "E(lepton2) [MeV]", energy_bins, energy_bins);
     AddHistogram("photon_energy_vs_opening_angle", "Photon energy vs. opening angle", "Opening angle [#circ]",
                  "E_{#gamma} [MeV]", theta_bins, energy_bins);
-    AddHistogram("theta_vs_clusters", "Theta vs. #Clusters", "#Clusters", "#vartheta [#circ]", particlecount_bins, theta_bins);
+    AddHistogram("theta_vs_clusters", "Theta vs. #Clusters", "#Clusters", "#vartheta [#circ]", BinSettings(10), theta_bins);
     AddHistogram("opening_angle_vs_q2", "Opening Angle Leptons vs. q^{2}", "q^{2} [GeV^{2}]", "Opening angle [#circ]",
                  q2_bins, theta_bins);
     AddHistogram("opening_angle_vs_E_high", "Opening Angle Leptons vs. E_{high}(Lepton)", "E [MeV]", "Opening angle [#circ]",
@@ -400,16 +389,33 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     // histogram to count how many events passed the different selection criteria
     accepted_events = HistFac.makeTH1D("Accepted events", "condition", "#events", BinSettings(10), "accepted_events");
 
+    // some histograms filled before tagger time window information is used
+    const BinSettings energy_bins(1600, 0, energy_scale*1.6);
+    const BinSettings veto_bins(1000, 0, 10);
+    const BinSettings energy_tagger(200, 1400, 1600);
+    const BinSettings time_tagger(1300, -650, 650);
+    const BinSettings particle_bins(10);
+    const BinSettings chi2_bins(150, 0, 50);
+    cb_esum = HistFac.makeTH1D("CB Energy Sum", "E [MeV]", "#", energy_bins, "cb_esum");
+    pid = HistFac.makeTH2D("PID Bananas", "Cluster Energy [MeV]", "Veto Energy [MeV]", energy_bins, veto_bins, "pid");
+    tagger_spectrum = HistFac.makeTH1D("Tagger Spectrum", "Photon Beam Energy [MeV]", "#", energy_tagger, "tagger_spectrum");
+    tagger_time = HistFac.makeTH1D("Tagger Time", "Tagger Time [ns]", "#", time_tagger, "tagger_time");
+    particle_types = HistFac.makeTH1D("Identified particles", "Particle Type", "#", particle_bins, "particle_types");
+    n_part = HistFac.makeTH1D("Number of particles", "#particles", "#", particle_bins, "n_part");
+    n_cluster_cb = HistFac.makeTH1D("Number of Clusters in CB", "#particles", "#", particle_bins, "n_cluster_cb");
+    n_cluster_taps = HistFac.makeTH1D("Number of Clusters in TAPS", "#particles", "#", particle_bins, "n_cluster_taps");
+    etap_chi2 = HistFac.makeTH1D("#chi^{2} Fit #eta' (particle selection)", "#chi^{2}", "#", chi2_bins, "etap_chi2");
+
     // true MC checks
-    const BinSettings energy_bins(1200,0,energy_scale*1.2);
+    const BinSettings true_energy_bins(1200, 0, energy_scale*1.2);
     const BinSettings theta_bins(720, 0, 180);
     const BinSettings q2_bins(2000, 0, 1000);
     eplus_true_theta_vs_energy = HistFac.makeTH2D("True e^{+} #vartheta vs. Energy", "Energy [MeV]", "#vartheta [#circ]",
-                                                  energy_bins, theta_bins, "eplus_true_theta_vs_energy");
+                                                  true_energy_bins, theta_bins, "eplus_true_theta_vs_energy");
     eminus_true_theta_vs_energy = HistFac.makeTH2D("True e^{-} #vartheta vs. Energy", "Energy [MeV]", "#vartheta [#circ]",
-                                                   energy_bins, theta_bins, "eminus_true_theta_vs_energy");
+                                                   true_energy_bins, theta_bins, "eminus_true_theta_vs_energy");
     photon_true_theta_vs_energy = HistFac.makeTH2D("True #gamma #vartheta vs. Energy", "Energy [MeV]", "#vartheta [#circ]",
-                                                   energy_bins, theta_bins, "photon_true_theta_vs_energy");
+                                                   true_energy_bins, theta_bins, "photon_true_theta_vs_energy");
     proton_true_theta_vs_energy = HistFac.makeTH2D("True p #vartheta vs. Energy", "Energy [MeV]", "#vartheta [#circ]",
                                                    BinSettings(600, 0, 600), BinSettings(100, 0, 25),
                                                    "proton_true_theta_vs_energy");
@@ -418,13 +424,13 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     opening_angle_leptons_true = HistFac.makeTH1D("True Lepton Opening Angle", "Opening angle [#circ]", "#", theta_bins,
                                                   "opening_angle_leptons_true");
     opening_angle_vs_photon_energy_true = HistFac.makeTH2D("True Lepton Opening Angle vs. #gamma Energy",
-                                                           "E_{#gamma} [MeV]", "Angle [#circ]", energy_bins, theta_bins,
+                                                           "E_{#gamma} [MeV]", "Angle [#circ]", true_energy_bins, theta_bins,
                                                            "opening_angle_vs_photon_energy_true");
     lepton_energies_true = HistFac.makeTH2D("True Lepton Energies", "E(lepton1)_{true} [MeV]", "E(lepton2)_{true} [MeV]",
-                                            energy_bins, energy_bins, "lepton_energies_true");
-    energy_lepton1_true = HistFac.makeTH1D("True energy higher energetic lepton", "E_{true} [MeV]", "#", energy_bins,
+                                            true_energy_bins, true_energy_bins, "lepton_energies_true");
+    energy_lepton1_true = HistFac.makeTH1D("True energy higher energetic lepton", "E_{true} [MeV]", "#", true_energy_bins,
                                            "energy_lepton1_true");
-    energy_lepton2_true = HistFac.makeTH1D("True energy lower energetic lepton", "E_{true} [MeV]", "#", energy_bins,
+    energy_lepton2_true = HistFac.makeTH1D("True energy lower energetic lepton", "E_{true} [MeV]", "#", true_energy_bins,
                                            "energy_lepton2_true");
     n_cluster_cb_vs_q2 = HistFac.makeTH2D("Number of Clusters in CB vs. q^{2}", "q^{2} [MeV]", "#clusters",
                                           q2_bins, BinSettings(6), "n_cluster_cb_vs_q2");
@@ -434,6 +440,10 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
                                                   theta_bins, BinSettings(6), "n_cluster_cb_vs_open_angle");
     n_cluster_taps_vs_open_angle = HistFac.makeTH2D("True p #vartheta vs. Energy", "Angle [#circ]", "#clusters",
                                                     theta_bins, BinSettings(5), "n_cluster_taps_vs_open_angle");
+    // for Achims proton id test
+    expected_proton_diff_vs_q2 = HistFac.makeTH2D("Expected Proton Difference vs. q^{2}", "q^{2} [MeV]", "Angle [#circ]",
+                                                  q2_bins, BinSettings(100, 0, 25), "expected_proton_diff_vs_q2");
+
 
     // prepare invM histograms for different q2 ranges
     int start_range = 0;
@@ -592,6 +602,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         true_particles.clear();
 
     // do a q2 preselection
+    double q2_true = -1.;
     if (MC) {
         Particle ePlus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
         Particle eMinus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
@@ -602,22 +613,22 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
                 ePlus_true = Particle(*p);
         }
         //double lepton_open_angle_true = ePlus_true.Angle(eMinus_true.Vect())*TMath::RadToDeg();
-        double q2_true = (ePlus_true + eMinus_true).M();
+        q2_true = (ePlus_true + eMinus_true).M();
         if (q2_true < 50.)
             return;
     }
 
     accepted_events->Fill("all events", 1);
 
-    prompt["cb_esum"]->Fill(event.Reconstructed().TriggerInfos().CBEenergySum());
+    cb_esum->Fill(event.Reconstructed().TriggerInfos().CBEenergySum());
 
-    if (event.Reconstructed().TriggerInfos().CBEenergySum() < cb_esum)
+    if (event.Reconstructed().TriggerInfos().CBEenergySum() < CB_ESUM)
         return;
 
     accepted_events->Fill("CB Esum", 1);
 
     for (const auto& track : event.Reconstructed().Tracks()) {
-        prompt["pid"]->Fill(track->ClusterEnergy(), track->VetoEnergy());
+        pid->Fill(track->ClusterEnergy(), track->VetoEnergy());
     }
 
     // determine #clusters per event per detector
@@ -632,8 +643,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     TrackList tracksTAPS;
     GetTracks(event, tracksCB, tracksTAPS);
     //printf("Particles found: %zu CB, %zu TAPS\n", tracksCB.size(), tracksTAPS.size());
-    prompt["n_cluster_cb"]->Fill(tracksCB.size());
-    prompt["n_cluster_taps"]->Fill(tracksTAPS.size());
+    n_cluster_cb->Fill(tracksCB.size());
+    n_cluster_taps->Fill(tracksTAPS.size());
 
     // fill true MC information
     if (MC)
@@ -644,8 +655,9 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 
 //    accepted_events->Fill("#part FS", 1);
 
+    n_part->Fill(event.Reconstructed().Tracks().size());
     for (auto& particle : event.Reconstructed().Particles().GetAll()) {
-        prompt["particle_types"]->Fill(particle->Type().PrintName().c_str(), 1);
+        particle_types->Fill(particle->Type().PrintName().c_str(), 1);
     }
 
     for (auto& t : ParticleTypeDatabase::DetectableTypes()) {
@@ -693,6 +705,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         return;
     accepted_events->Fill("fit #eta'", 1);
     // Cut on chi^2
+    etap_chi2->Fill(etap_res.ChiSquare);
     if (etap_res.ChiSquare > 15.)
         return;
     accepted_events->Fill("#chi^{2} #eta'", 1);
@@ -712,8 +725,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         tagger_hits = event.Reconstructed().TaggerHits();
 
     for (const auto& taggerhit : tagger_hits) {
-        prompt["tagger_spectrum"]->Fill(taggerhit->PhotonEnergy());
-        prompt["tagger_time"]->Fill(taggerhit->Time());
+        tagger_spectrum->Fill(taggerhit->PhotonEnergy());
+        tagger_time->Fill(taggerhit->Time());
 
         // determine if the event is in the prompt or random window
         bool is_prompt = false;
@@ -736,6 +749,10 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         //double best_chi2 = 1000.;
         Particle proton_candidate(ParticleTypeDatabase::Proton, 0., 0., 0.);
         TLorentzVector expected_proton = taggerhit->PhotonBeam() + target - fit_etap;
+        if (MC) {
+            Particle true_proton = get_true_proton(event.MCTrue().Particles().GetAll());
+            expected_proton_diff_vs_q2->Fill(q2_true, expected_proton.Angle(true_proton.Vect())*TMath::RadToDeg());
+        }
         bool proton_found = false;
         for (const auto& track : tracksTAPS) {
             proton_candidate = Particle(ParticleTypeDatabase::Proton, track);
@@ -755,7 +772,6 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         // make sure the correct histogram will be filled
         HistList& h = is_prompt ? prompt : random;
 
-        h["n_part"]->Fill(event.Reconstructed().Particles().GetAll().size());
         h["tagger_energy"]->Fill(taggerhit->PhotonEnergy());
 
 //        // find the photons and one proton
@@ -796,6 +812,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         accepted_events->Fill("#part", 1);
 
         // check theta distribution in dependence of the number of clusters
+        //TODO: check if the following is needed anymore
         TrackPtr tr;
         bool highVeto = false;
         for (const auto& p : particles) {
@@ -1018,11 +1035,11 @@ void ant::analysis::SaschaPhysics::Finish()
 void ant::analysis::SaschaPhysics::ShowResult()
 {
     canvas c("SaschaPhysics: Overview");
-    c << drawoption("colz") << diff["pid"]
+    c << drawoption("colz") << pid
       << padoption::set(padoption_t::Legend)
-      << diff["particle_types"]
+      << particle_types
       << padoption::unset(padoption_t::Legend)
-      << diff["tagger_spectrum"] << diff["n_tagged"] << diff["cb_esum"] << endc;
+      << tagger_spectrum << diff["n_tagged"] << cb_esum << endc;
 
     canvas c_pulls("SaschaPhysics: Pulls");
     c_pulls << padoption::set(padoption_t::LogY);
@@ -1195,7 +1212,7 @@ void ant::analysis::SaschaPhysics::GetTracks(const Event& event, TrackList& trac
 {
     for (const auto& track : event.Reconstructed().Tracks()) {
         // ignore particles below set cluster energy threshold
-        if (track->ClusterEnergy() < cluster_thresh)
+        if (track->ClusterEnergy() < CLUSTER_TRESH)
             continue;
         if (track->Detector() & detector_t::anyCB)
             tracksCB.push_back(track);
@@ -1251,7 +1268,7 @@ void ant::analysis::SaschaPhysics::GetParticles(const ant::Event& event, particl
     // example of how to collect particles in a user defined way
     for (const auto& track : event.Reconstructed().Tracks()) {
         // ignore particles below set cluster energy threshold
-        if (track->ClusterEnergy() < cluster_thresh)
+        if (track->ClusterEnergy() < CLUSTER_TRESH)
             continue;
         if (track->Detector() & ant::detector_t::NaI) {
             nParticlesCB++;
