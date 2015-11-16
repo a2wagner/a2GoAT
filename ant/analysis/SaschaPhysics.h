@@ -201,7 +201,9 @@ protected:
 
     std::map<const ParticleTypeDatabase::Type*, TH1D*> numParticleType;
 
+    // histogram to keep track of efficencies
     TH1D* accepted_events;
+    // different MC true information
 
     std::map<std::string, TH1*> pulls_prompt;
     std::map<std::string, TH1*> pulls_random;
@@ -221,6 +223,10 @@ protected:
     bool IdentifyTracks(const TrackList& tracksCB, const TrackList& tracksTAPS, particle_vector& particles);
     void GetParticles(const ant::Event& event, particle_vector& particles);
     void GetTrueParticles(const ant::Event& event, particle_vector& particles);
+
+    void sort_particles(particle_vector&);
+    void fill_MC_true(const ParticleList&, const size_t, const size_t);
+    void proton_tests(const TrackList&, const TaggerHitPtr);
 
     APLCON fitter;
     FitParticle beam;

@@ -575,19 +575,23 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 {
     const TLorentzVector target(0., 0., 0., ParticleTypeDatabase::Proton.Mass());
 
+    const bool MC = !(event.MCTrue().Particles().GetAll().empty());
+
     // do a q2 preselection
-    Particle ePlus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
-    Particle eMinus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
-    for (const auto& p : event.MCTrue().Particles().GetAll()) {
-        if (p->Type() == ParticleTypeDatabase::eMinus)
-            eMinus_true = Particle(*p);
-        else if (p->Type() == ParticleTypeDatabase::ePlus)
-            ePlus_true = Particle(*p);
+    if (MC) {
+        Particle ePlus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+        Particle eMinus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+        for (const auto& p : event.MCTrue().Particles().GetAll()) {
+            if (p->Type() == ParticleTypeDatabase::eMinus)
+                eMinus_true = Particle(*p);
+            else if (p->Type() == ParticleTypeDatabase::ePlus)
+                ePlus_true = Particle(*p);
+        }
+        //double lepton_open_angle_true = ePlus_true.Angle(eMinus_true.Vect())*TMath::RadToDeg();
+        double q2_true = (ePlus_true + eMinus_true).M();
+        if (q2_true < 50.)
+            return;
     }
-    //double lepton_open_angle_true = ePlus_true.Angle(eMinus_true.Vect())*TMath::RadToDeg();
-    double q2_true = (ePlus_true + eMinus_true).M();
-    if (q2_true < 50.)
-        return;
 
     accepted_events->Fill("all events", 1);
 
@@ -617,43 +621,9 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     prompt["n_cluster_cb"]->Fill(tracksCB.size());
     prompt["n_cluster_taps"]->Fill(tracksTAPS.size());
 
-    // true MC tests
-    if (!(event.MCTrue().Particles().GetAll().empty())) {
-        // use the first particle in the particles vector as a placeholder
-        Particle ePlus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
-        Particle eMinus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
-        Particle photon_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
-        Particle proton_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
-        for (const auto& p : event.MCTrue().Particles().GetAll()) {
-            if (p->Type() == ParticleTypeDatabase::Photon)
-                photon_true = Particle(*p);
-            else if (p->Type() == ParticleTypeDatabase::eMinus)
-                eMinus_true = Particle(*p);
-            else if (p->Type() == ParticleTypeDatabase::ePlus)
-                ePlus_true = Particle(*p);
-            else if (p->Type() == ParticleTypeDatabase::Proton)
-                proton_true = Particle(*p);
-        }
-        if (ePlus_true.Type() == ParticleTypeDatabase::Neutron
-                || eMinus_true.Type() == ParticleTypeDatabase::Neutron
-                || photon_true.Type() == ParticleTypeDatabase::Neutron
-                || proton_true.Type() == ParticleTypeDatabase::Neutron)
-            accepted_events->Fill("wrong MC", 1);
-        double lepton_open_angle_true = ePlus_true.Angle(eMinus_true.Vect())*TMath::RadToDeg();
-        double q2 = (ePlus_true + eMinus_true).M();
-        prompt["energy_photon_true"]->Fill(photon_true.Ek());
-        prompt["proton_energy_true"]->Fill(proton_true.Ek());
-        prompt["eplus_energy_true"]->Fill(ePlus_true.Ek());
-        prompt["eplus_theta_true"]->Fill(ePlus_true.Theta()*TMath::RadToDeg());
-        prompt["eminus_energy_true"]->Fill(eMinus_true.Ek());
-        prompt["eminus_theta_true"]->Fill(eMinus_true.Theta()*TMath::RadToDeg());
-        prompt["photon_theta_true"]->Fill(photon_true.Theta()*TMath::RadToDeg());
-        prompt["true_open_angle_vs_q2"]->Fill(q2, lepton_open_angle_true);
-        prompt["n_cluster_cb_vs_q2"]->Fill(q2, tracksCB.size());
-        prompt["n_cluster_taps_vs_q2"]->Fill(q2, tracksTAPS.size());
-        prompt["n_cluster_cb_vs_open_angle"]->Fill(lepton_open_angle_true, tracksCB.size());
-        prompt["n_cluster_taps_vs_open_angle"]->Fill(lepton_open_angle_true, tracksTAPS.size());
-    }
+    // fill true MC information
+    if (MC)
+        fill_MC_true(event.MCTrue().Particles().GetAll(), tracksCB.size(), tracksTAPS.size());
 
 //    if (tracksCB.size() + tracksTAPS.size() != nFinalState)
 //        return;
@@ -721,8 +691,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     TaggerHistList tagger_hits;
     size_t prompt_n_tagger = 0, random_n_tagger = 0;
     //static size_t count = 0;
-    const bool MC = true;
-    if (MC)
+    const bool trueMC = true;  // use MC true
+    if (trueMC && MC)
         tagger_hits = event.MCTrue().TaggerHits();
     else
         tagger_hits = event.Reconstructed().TaggerHits();
@@ -744,43 +714,9 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 
         is_prompt ? prompt_n_tagger++ : random_n_tagger++;
 
-        // proton tests (TOF, PSA)
-        for (auto& track : event.Reconstructed().Tracks()) {
-            double tof = taggerhit->Time() - track->Time();
-            double shortE = track->ShortEnergy(), clusterE = track->ClusterEnergy();
-            const double r2d = TMath::RadToDeg();
-            if (is_prompt) {
-                if (track->Detector() & ant::detector_t::anyTAPS) {
-                    dynamic_cast<TH3D*>(prompt["proton_id"])->Fill(track->ClusterSize(), clusterE, tof);
-                    prompt["proton_energies"]->Fill(clusterE, shortE);
-                    prompt["E_vs_tof"]->Fill(tof, clusterE);
-                    prompt["E/cl_vs_tof"]->Fill(tof, clusterE/track->ClusterSize());
-                    if (track->Detector() & detector_t::Veto) {
-                        prompt["E_vs_tof_veto"]->Fill(tof, clusterE);
-                        prompt["E/cl_vs_tof_veto"]->Fill(tof, clusterE/track->ClusterSize());
-                    }
-                    if (track->Theta()*TMath::RadToDeg() > 5.)
-                        prompt["proton_id_BaF"]->Fill(tof, clusterE/track->ClusterSize());
-                    else
-                        prompt["proton_id_PbWO"]->Fill(tof, clusterE/track->ClusterSize());
-                    //prompt["Ecenter/cl_vs_tof"]->Fill(tof, track->CentralCrystal()/track->ClusterSize());
-                    //prompt["Ecenter/cl_vs_tof_veto",]->Fill(tof, track->CentralCrystal()/track->ClusterSize());
-                    prompt["proton_psa"]->Fill(sqrt(shortE*shortE + clusterE*clusterE), atan2(clusterE, shortE)*r2d);
-                } else if (track->Detector() & detector_t::anyCB) {
-                    dynamic_cast<TH3D*>(random["proton_id"])->Fill(track->ClusterSize(), clusterE, tof);
-                    random["proton_energies"]->Fill(clusterE, shortE);
-                    random["E_vs_tof"]->Fill(tof, clusterE);
-                    random["E/cl_vs_tof"]->Fill(tof, clusterE/track->ClusterSize());
-                    if (track->Detector() & detector_t::PID) {
-                        random["E_vs_tof_veto"]->Fill(tof, clusterE);
-                        random["E/cl_vs_tof_veto"]->Fill(tof, clusterE/track->ClusterSize());
-                    }
-                    //random["Ecenter/cl_vs_tof"]->Fill(tof, track->CentralCrystal()/track->ClusterSize());
-                    //random["Ecenter/cl_vs_tof_veto",]->Fill(tof, track->CentralCrystal()/track->ClusterSize());
-                    random["proton_psa"]->Fill(sqrt(shortE*shortE + clusterE*clusterE), atan2(clusterE, shortE)*r2d);
-                }
-            }
-        }
+        // plot proton tests (TOF, PSA) in case of prompt hit
+        if (is_prompt)
+            proton_tests(event.Reconstructed().Tracks(), taggerhit);
 
         /* Achim's proposed test, continued */
         //double best_chi2 = 1000.;
@@ -861,22 +797,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
                 h["crystals_vs_ecl_uncharged"]->Fill(tr->ClusterEnergy(), tr->ClusterSize());
         }
 
-//        cout << "We have the right 4 particles\nNow sort them, order before:\n";
-//        for (const auto& p : particles)
-//            cout << p.Type() << endl;
-
-        // swap the proton and the last vector entry if the proton is not the last particle
-        for (auto it = particles.begin(); it != particles.end()-1; ++it)
-            if (it->Type() == ParticleTypeDatabase::Proton) {
-                std::iter_swap(it, particles.end()-1);
-                break;
-            }
-        // swap the photon at the third position
-        for (auto it = particles.begin(); it != particles.end()-2; ++it)
-            if (it->Type() == ParticleTypeDatabase::Photon) {
-                std::iter_swap(it, particles.end()-2);
-                break;
-            }
+        // sort order of particles
+        sort_particles(particles);
 
         TLorentzVector proton = particles.back();
         TLorentzVector etap(0., 0., 0., 0.);
@@ -919,42 +841,6 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         auto it = final_state.begin();
         for (const auto& p : particles)
             (it++)->SetFromVector(p);
-
-        if (!(event.MCTrue().Particles().GetAll().empty())) {
-            // use the first particle in the particles vector as a placeholder
-            Particle ePlus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
-            Particle eMinus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
-            Particle photon_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
-            Particle proton_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
-            for (const auto& p : event.MCTrue().Particles().GetAll()) {
-                if (p->Type() == ParticleTypeDatabase::Photon)
-                    photon_true = Particle(*p);
-                else if (p->Type() == ParticleTypeDatabase::eMinus)
-                    eMinus_true = Particle(*p);
-                else if (p->Type() == ParticleTypeDatabase::ePlus)
-                    ePlus_true = Particle(*p);
-                else if (p->Type() == ParticleTypeDatabase::Proton)
-                    proton_true = Particle(*p);
-            }
-
-            double lepton_open_angle_true = ePlus_true.Angle(eMinus_true.Vect())*TMath::RadToDeg();
-            double en_lep1_true, en_lep2_true;
-            if (eMinus_true.Ek() > ePlus_true.Ek()) {
-                en_lep1_true = eMinus_true.Ek();
-                en_lep2_true = ePlus_true.Ek();
-            } else {
-                en_lep1_true = ePlus_true.Ek();
-                en_lep2_true = eMinus_true.Ek();
-            }
-            if ((ePlus_true.Type() == ParticleTypeDatabase::eCharged)
-                    && (eMinus_true.Type() == ParticleTypeDatabase::eCharged)) {
-                h["opening_angle_leptons_true"]->Fill(lepton_open_angle_true);
-                h["photon_energy_vs_opening_angle_true"]->Fill(lepton_open_angle_true, photon_true.Ek());
-                h["lepton_energies_true"]->Fill(en_lep1_true, en_lep2_true);
-                h["energy_lepton1_true"]->Fill(en_lep1_true);
-                h["energy_lepton2_true"]->Fill(en_lep2_true);
-            }
-        }
 
         double q2_before = (particles[0] + particles[1]).M();
         double lepton_open_angle = particles[0].Angle(particles[1].Vect())*TMath::RadToDeg();
@@ -1137,6 +1023,117 @@ void ant::analysis::SaschaPhysics::ShowResult()
 
     // draw all random subtracted histograms
     //diff.Draw();
+}
+
+void ant::analysis::SaschaPhysics::sort_particles(particle_vector& particles)
+{
+//    cout << "We have the right 4 particles\nNow sort them, order before:\n";
+//    for (const auto& p : particles)
+//        cout << p.Type() << endl;
+
+    // swap the proton and the last vector entry if the proton is not the last particle
+    for (auto it = particles.begin(); it != particles.end()-1; ++it)
+        if (it->Type() == ParticleTypeDatabase::Proton) {
+            std::iter_swap(it, particles.end()-1);
+            break;
+        }
+
+    // swap the photon at the third position
+    for (auto it = particles.begin(); it != particles.end()-2; ++it)
+        if (it->Type() == ParticleTypeDatabase::Photon) {
+            std::iter_swap(it, particles.end()-2);
+            break;
+        }
+}
+
+void ant::analysis::SaschaPhysics::fill_MC_true(const ParticleList& particles, const size_t tracksCB, const size_t tracksTAPS)
+{
+    Particle ePlus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+    Particle eMinus_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+    Particle photon_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+    Particle proton_true(ParticleTypeDatabase::Neutron, 0, 0, 0);
+    for (const auto& p : particles) {
+        if (p->Type() == ParticleTypeDatabase::Photon)
+            photon_true = Particle(*p);
+        else if (p->Type() == ParticleTypeDatabase::eMinus)
+            eMinus_true = Particle(*p);
+        else if (p->Type() == ParticleTypeDatabase::ePlus)
+            ePlus_true = Particle(*p);
+        else if (p->Type() == ParticleTypeDatabase::Proton)
+            proton_true = Particle(*p);
+    }
+    if (ePlus_true.Type() == ParticleTypeDatabase::Neutron
+            || eMinus_true.Type() == ParticleTypeDatabase::Neutron
+            || photon_true.Type() == ParticleTypeDatabase::Neutron
+            || proton_true.Type() == ParticleTypeDatabase::Neutron)
+        accepted_events->Fill("wrong MC", 1);
+    double lepton_open_angle_true = ePlus_true.Angle(eMinus_true.Vect())*TMath::RadToDeg();
+    double q2 = (ePlus_true + eMinus_true).M();
+    prompt["energy_photon_true"]->Fill(photon_true.Ek());
+    prompt["proton_energy_true"]->Fill(proton_true.Ek());
+    prompt["eplus_energy_true"]->Fill(ePlus_true.Ek());
+    prompt["eplus_theta_true"]->Fill(ePlus_true.Theta()*TMath::RadToDeg());
+    prompt["eminus_energy_true"]->Fill(eMinus_true.Ek());
+    prompt["eminus_theta_true"]->Fill(eMinus_true.Theta()*TMath::RadToDeg());
+    prompt["photon_theta_true"]->Fill(photon_true.Theta()*TMath::RadToDeg());
+    prompt["true_open_angle_vs_q2"]->Fill(q2, lepton_open_angle_true);
+    prompt["n_cluster_cb_vs_q2"]->Fill(q2, tracksCB);
+    prompt["n_cluster_taps_vs_q2"]->Fill(q2, tracksTAPS);
+    prompt["n_cluster_cb_vs_open_angle"]->Fill(lepton_open_angle_true, tracksCB);
+    prompt["n_cluster_taps_vs_open_angle"]->Fill(lepton_open_angle_true, tracksTAPS);
+
+    double en_lep1_true, en_lep2_true;
+    if (eMinus_true.Ek() > ePlus_true.Ek()) {
+        en_lep1_true = eMinus_true.Ek();
+        en_lep2_true = ePlus_true.Ek();
+    } else {
+        en_lep1_true = ePlus_true.Ek();
+        en_lep2_true = eMinus_true.Ek();
+    }
+    prompt["opening_angle_leptons_true"]->Fill(lepton_open_angle_true);
+    prompt["photon_energy_vs_opening_angle_true"]->Fill(lepton_open_angle_true, photon_true.Ek());
+    prompt["lepton_energies_true"]->Fill(en_lep1_true, en_lep2_true);
+    prompt["energy_lepton1_true"]->Fill(en_lep1_true);
+    prompt["energy_lepton2_true"]->Fill(en_lep2_true);
+}
+
+void ant::analysis::SaschaPhysics::proton_tests(const TrackList& tracks, const TaggerHitPtr taggerhit)
+{
+    for (const auto& track : tracks) {
+        double tof = taggerhit->Time() - track->Time();
+        double shortE = track->ShortEnergy(), clusterE = track->ClusterEnergy();
+        const double r2d = TMath::RadToDeg();
+
+        if (track->Detector() & ant::detector_t::anyTAPS) {
+            dynamic_cast<TH3D*>(prompt["proton_id"])->Fill(track->ClusterSize(), clusterE, tof);
+            prompt["proton_energies"]->Fill(clusterE, shortE);
+            prompt["E_vs_tof"]->Fill(tof, clusterE);
+            prompt["E/cl_vs_tof"]->Fill(tof, clusterE/track->ClusterSize());
+            if (track->Detector() & detector_t::Veto) {
+                prompt["E_vs_tof_veto"]->Fill(tof, clusterE);
+                prompt["E/cl_vs_tof_veto"]->Fill(tof, clusterE/track->ClusterSize());
+            }
+            if (track->Theta()*TMath::RadToDeg() > 5.)
+                prompt["proton_id_BaF"]->Fill(tof, clusterE/track->ClusterSize());
+            else
+                prompt["proton_id_PbWO"]->Fill(tof, clusterE/track->ClusterSize());
+            //prompt["Ecenter/cl_vs_tof"]->Fill(tof, track->CentralCrystal()/track->ClusterSize());
+            //prompt["Ecenter/cl_vs_tof_veto",]->Fill(tof, track->CentralCrystal()/track->ClusterSize());
+            prompt["proton_psa"]->Fill(sqrt(shortE*shortE + clusterE*clusterE), atan2(clusterE, shortE)*r2d);
+        } else if (track->Detector() & detector_t::anyCB) {
+            dynamic_cast<TH3D*>(random["proton_id"])->Fill(track->ClusterSize(), clusterE, tof);
+            random["proton_energies"]->Fill(clusterE, shortE);
+            random["E_vs_tof"]->Fill(tof, clusterE);
+            random["E/cl_vs_tof"]->Fill(tof, clusterE/track->ClusterSize());
+            if (track->Detector() & detector_t::PID) {
+                random["E_vs_tof_veto"]->Fill(tof, clusterE);
+                random["E/cl_vs_tof_veto"]->Fill(tof, clusterE/track->ClusterSize());
+            }
+            //random["Ecenter/cl_vs_tof"]->Fill(tof, track->CentralCrystal()/track->ClusterSize());
+            //random["Ecenter/cl_vs_tof_veto",]->Fill(tof, track->CentralCrystal()/track->ClusterSize());
+            random["proton_psa"]->Fill(sqrt(shortE*shortE + clusterE*clusterE), atan2(clusterE, shortE)*r2d);
+        }
+    }
 }
 
 void ant::analysis::SaschaPhysics::GetTracks(const Event& event, TrackList& tracksCB, TrackList& tracksTAPS)
