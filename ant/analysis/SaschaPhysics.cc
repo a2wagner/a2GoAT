@@ -396,6 +396,7 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     const BinSettings time_tagger(1300, -650, 650);
     const BinSettings particle_bins(10);
     const BinSettings chi2_bins(150, 0, 50);
+    const BinSettings q2_bins(2000, 0, 1000);
     cb_esum = HistFac.makeTH1D("CB Energy Sum", "E [MeV]", "#", energy_bins, "cb_esum");
     pid = HistFac.makeTH2D("PID Bananas", "Cluster Energy [MeV]", "Veto Energy [MeV]", energy_bins, veto_bins, "pid");
     tagger_spectrum = HistFac.makeTH1D("Tagger Spectrum", "Photon Beam Energy [MeV]", "#", energy_tagger, "tagger_spectrum");
@@ -405,11 +406,12 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     n_cluster_cb = HistFac.makeTH1D("Number of Clusters in CB", "#particles", "#", particle_bins, "n_cluster_cb");
     n_cluster_taps = HistFac.makeTH1D("Number of Clusters in TAPS", "#particles", "#", particle_bins, "n_cluster_taps");
     etap_chi2 = HistFac.makeTH1D("#chi^{2} Fit #eta' (particle selection)", "#chi^{2}", "#", chi2_bins, "etap_chi2");
+    etap_chi2_vs_q2 = HistFac.makeTH2D("#chi^{2} Fit #eta' vs. q^{2} (particle selection)", "q^{2} [MeV]", "#chi^{2}",
+                                       q2_bins, chi2_bins, "etap_chi2_vs_q2");
 
     // true MC checks
     const BinSettings true_energy_bins(1200, 0, energy_scale*1.2);
     const BinSettings theta_bins(720, 0, 180);
-    const BinSettings q2_bins(2000, 0, 1000);
     eplus_true_theta_vs_energy = HistFac.makeTH2D("True e^{+} #vartheta vs. Energy", "Energy [MeV]", "#vartheta [#circ]",
                                                   true_energy_bins, theta_bins, "eplus_true_theta_vs_energy");
     eminus_true_theta_vs_energy = HistFac.makeTH2D("True e^{-} #vartheta vs. Energy", "Energy [MeV]", "#vartheta [#circ]",
@@ -443,6 +445,10 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     // for Achims proton id test
     expected_proton_diff_vs_q2 = HistFac.makeTH2D("Expected Proton Difference vs. q^{2}", "q^{2} [MeV]", "Angle [#circ]",
                                                   q2_bins, BinSettings(100, 0, 25), "expected_proton_diff_vs_q2");
+    expected_proton_diff_vs_q2_rebin = HistFac.makeTH2D("Expected Proton Difference vs. q^{2}", "q^{2} [MeV]", "Angle [#circ]",
+                                                        BinSettings(20, 0, 1000), BinSettings(100, 0, 25),
+                                                        "expected_proton_diff_vs_q2_rebin");
+    protons_found = HistFac.makeTH1D("#Protons in predicted cone", "protons", "#", BinSettings(5), "protons_found");
 
 
     // prepare invM histograms for different q2 ranges
@@ -706,6 +712,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     accepted_events->Fill("fit #eta'", 1);
     // Cut on chi^2
     etap_chi2->Fill(etap_res.ChiSquare);
+    etap_chi2_vs_q2->Fill(q2_true, etap_res.ChiSquare);
     if (etap_res.ChiSquare > 15.)
         return;
     accepted_events->Fill("#chi^{2} #eta'", 1);
@@ -724,6 +731,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     else
         tagger_hits = event.Reconstructed().TaggerHits();
 
+    size_t proton_count = 0;
+    constexpr double proton_cone = 4.;
     for (const auto& taggerhit : tagger_hits) {
         tagger_spectrum->Fill(taggerhit->PhotonEnergy());
         tagger_time->Fill(taggerhit->Time());
@@ -752,15 +761,17 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         if (MC) {
             Particle true_proton = get_true_proton(event.MCTrue().Particles().GetAll());
             expected_proton_diff_vs_q2->Fill(q2_true, expected_proton.Angle(true_proton.Vect())*TMath::RadToDeg());
+            expected_proton_diff_vs_q2_rebin->Fill(q2_true, expected_proton.Angle(true_proton.Vect())*TMath::RadToDeg());
         }
         bool proton_found = false;
         for (const auto& track : tracksTAPS) {
             proton_candidate = Particle(ParticleTypeDatabase::Proton, track);
-            if (expected_proton.Angle(proton_candidate.Vect())*TMath::RadToDeg() < 4.) {
+            if (expected_proton.Angle(proton_candidate.Vect())*TMath::RadToDeg() < proton_cone) {
                 if (proton_found)
                     accepted_events->Fill("2nd proton", 1);
                 proton_found = true;
-                break;
+                //break;
+                proton_count++;
             }
         }
         if (!proton_found)
@@ -1023,6 +1034,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     }
     prompt["n_tagged"]->Fill(prompt_n_tagger);
     random["n_tagged"]->Fill(random_n_tagger);
+    protons_found->Fill(proton_count);
 }
 
 void ant::analysis::SaschaPhysics::Finish()

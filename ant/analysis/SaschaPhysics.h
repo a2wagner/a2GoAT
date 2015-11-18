@@ -216,6 +216,7 @@ protected:
     TH1D* n_cluster_cb;
     TH1D* n_cluster_taps;
     TH1D* etap_chi2;
+    TH2D* etap_chi2_vs_q2;
     // different MC true information
     TH2D* eplus_true_theta_vs_energy;
     TH2D* eminus_true_theta_vs_energy;
@@ -232,6 +233,8 @@ protected:
     TH2D* n_cluster_cb_vs_open_angle;
     TH2D* n_cluster_taps_vs_open_angle;
     TH2D* expected_proton_diff_vs_q2;
+    TH2D* expected_proton_diff_vs_q2_rebin;
+    TH1D* protons_found;
 
     std::map<std::string, TH1*> pulls_prompt;
     std::map<std::string, TH1*> pulls_random;
