@@ -13,6 +13,7 @@
 using namespace std;
 using namespace ant;
 
+
 TLorentzVector analysis::SaschaPhysics::FitParticle::Make(const std::vector<double>& EkThetaPhi, const Double_t m)
 {
     const double E = EkThetaPhi[0] + m;
@@ -380,6 +381,21 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     cout << "Random window 1: " << random_window1 << " ns\n";
     cout << "Random window 2: " << random_window2 << " ns\n";
 
+    // read in histograms with uncertainties and corrections as well as correction factors from files
+    read_file("files/data.2014.07/CB_lingain.txt", cb_gain);
+    read_file("files/data.2014.07/TAPS_lingain.txt", taps_gain);
+    read_file("files/data.2014.07/time_corr_CB.txt", cb_time_correction);
+    cb_energy_correction = static_cast<TH2D*>(read_hist("files/corr/CB_e_corr.root", "g_peak_E_CB"));
+    taps_energy_correction = static_cast<TH2D*>(read_hist("files/corr/TAPS_e_corr.root", "g_peak_E_TAPS"));
+    cb_theta_correction = static_cast<TH1D*>(read_hist("files/corr/CB_th_corr.root", "photon_dtheta_v_theta_CB_pfx"));
+    taps_theta_correction = static_cast<TH1D*>(read_hist("files/corr/TAPS_th_corr.root", "photon_dtheta_v_theta_TAPS_pfx"));
+    photon_energy_uncertainties = static_cast<TH2D*>(read_hist("files/APLCONunc/photon_uncertainties_vz.root", "E"));
+    photon_theta_uncertainties = static_cast<TH2D*>(read_hist("files/APLCONunc/photon_uncertainties_vz.root", "theta"));
+    photon_phi_uncertainties = static_cast<TH2D*>(read_hist("files/APLCONunc/photon_uncertainties_vz.root", "phi"));
+    //proton_energy_uncertainties = static_cast<TH2D*>(read_hist("files/APLCONunc/proton_uncertainties_vz.root", "E"));
+    proton_theta_uncertainties = static_cast<TH2D*>(read_hist("files/APLCONunc/proton_uncertainties_vz.root", "p_theta"));
+    proton_phi_uncertainties = static_cast<TH2D*>(read_hist("files/APLCONunc/proton_uncertainties_vz.root", "p_phi"));
+
     // histogram to count number of different particle types
     for (auto& t : ParticleTypeDatabase::DetectableTypes())
         numParticleType[t]= HistFac.makeTH1D("Number of " + t->PrintName(),
@@ -725,7 +741,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     TaggerHistList tagger_hits;
     size_t prompt_n_tagger = 0, random_n_tagger = 0;
     //static size_t count = 0;
-    const bool trueMC = true;  // use MC true
+    constexpr bool trueMC = true;  // use MC true
     if (trueMC && MC)
         tagger_hits = event.MCTrue().TaggerHits();
     else
@@ -892,7 +908,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 //                       [](Particle& p) -> double { return FitParticle().SetFromVector(p); });
         auto it = final_state.begin();
         for (const auto& p : particles)
-            (it++)->SetFromVector(p);
+            //(it++)->SetFromVector(p);
+            set_fit_particle(p, *it++);
 
         double q2_before = (particles[0] + particles[1]).M();
         double lepton_open_angle = particles[0].Angle(particles[1].Vect())*TMath::RadToDeg();
@@ -1320,4 +1337,131 @@ void ant::analysis::SaschaPhysics::GetTrueParticles(const ant::Event& event, par
         if (contains(ParticleTypeDatabase::MCFinalStateTypes(), p->Type()))
             particles.push_back(Particle(*p));
     nParticles = particles.size();
+}
+
+TH1* ant::analysis::SaschaPhysics::read_hist(const char* file, const char* hist_name) const
+{
+    TFile f(file);
+    if (!f.IsOpen()) {
+        cerr << "Couldn't open file " << file << endl;
+        exit(1);
+    }
+    TH2* h = static_cast<TH2*>(f.Get(hist_name));
+    if (!h) {
+        cerr << "Couldn't find histogram '" << hist_name << "' in file " << file << endl;
+        exit(1);
+    }
+    h->SetDirectory(0);  // dissociate histogram from the file
+    f.Close();
+    return h;
+}
+
+void ant::analysis::SaschaPhysics::read_file(const char* file, std::vector<double>& values, const int fill_size)
+{
+    values.clear();
+    ifstream ifs(file);
+
+    if (ifs) {
+        string line;
+        string buffer;
+        stringstream ss;
+
+        getline(ifs, line);
+        ss << line;
+
+        while (getline(ss, buffer, '\t'))
+            values.push_back(stod(buffer));
+
+        ifs.close();
+    } else {
+        cerr << "File " << file << " couldn't be found" << endl;
+        if (!fill_size)
+            exit(1);
+        else {
+            cout << "Use " << fill_size << " zeros instead" << endl;
+            values.resize(fill_size);
+        }
+    }
+}
+
+void ant::analysis::SaschaPhysics::set_fit_particle(const Particle& p, FitParticle& part)
+{
+    vector<double> sigmas;
+    get_uncertainties(p, sigmas);
+    part.SetFromParticle(p, sigmas);
+}
+
+void ant::analysis::SaschaPhysics::get_uncertainties(const Particle& p, vector<double>& sigmas)
+{
+    sigmas.clear();
+    sigmas.push_back(get_sigma_energy(p));
+    sigmas.push_back(get_sigma_theta(p));
+    sigmas.push_back(get_sigma_phi(p));
+}
+
+double ant::analysis::SaschaPhysics::get_sigma_energy(const Particle& p) const
+{
+    if (p.Type() == ParticleTypeDatabase::Proton)
+        return 0;//get_sigma(p, proton_energy_uncertainties);
+    else
+        return get_sigma(p, photon_energy_uncertainties);
+}
+
+double ant::analysis::SaschaPhysics::get_sigma_theta(const Particle& p) const
+{
+    if (p.Type() == ParticleTypeDatabase::Proton)
+        return get_sigma(p, proton_theta_uncertainties);
+    else
+        return get_sigma(p, photon_theta_uncertainties);
+}
+
+double ant::analysis::SaschaPhysics::get_sigma_phi(const Particle& p) const
+{
+    if (p.Type() == ParticleTypeDatabase::Proton)
+        return get_sigma(p, proton_phi_uncertainties);
+    else
+        return get_sigma(p, photon_phi_uncertainties);
+}
+
+double ant::analysis::SaschaPhysics::get_sigma(const Particle& p, TH2* const h) const
+{
+    return static_cast<double>(h->GetBinContent(h->FindBin(p.Ek(), p.Theta()*TMath::RadToDeg())));
+}
+
+void ant::analysis::SaschaPhysics::apply_time_correction(const TrackList& tracksCB, const TrackList& tracksTAPS)
+{
+    for (const auto track : tracksCB)
+        track->SetTime(track->Time() - cb_time_correction.at(track->CentralCrystal()));
+}
+
+void ant::analysis::SaschaPhysics::apply_energy_correction(const TrackList& tracksCB, const TrackList& tracksTAPS)
+{
+    double e, delta;
+
+    for (const auto track : tracksCB) {
+        e = track->ClusterEnergy()*cb_gain.at(track->CentralCrystal());
+        delta = static_cast<double>(cb_energy_correction->GetBinContent(cb_energy_correction->FindBin(e, track->Theta())));
+        track->SetClusterEnergy(e*(1 - delta));
+    }
+
+    for (const auto track : tracksTAPS) {
+        e = track->ClusterEnergy()*taps_gain.at(track->CentralCrystal());
+        delta = static_cast<double>(taps_energy_correction->GetBinContent(taps_energy_correction->FindBin(e, track->Theta())));
+        track->SetClusterEnergy(e*(1 - delta));
+    }
+}
+
+void ant::analysis::SaschaPhysics::apply_theta_correction(const TrackList& tracksCB, const TrackList& tracksTAPS)
+{
+    double delta;
+
+    for (const auto track : tracksCB) {
+        delta = static_cast<double>(cb_theta_correction->GetBinContent(cb_theta_correction->FindBin(track->Theta())));
+        track->SetTheta(track->Theta() - delta);
+    }
+
+    for (const auto track : tracksTAPS) {
+        delta = static_cast<double>(taps_theta_correction->GetBinContent(taps_theta_correction->FindBin(track->Theta())));
+        track->SetTheta(track->Theta() - delta);
+    }
 }

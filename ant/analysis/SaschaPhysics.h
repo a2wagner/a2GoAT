@@ -11,10 +11,12 @@
 #include <vector>
 #include <map>
 #include <random>
+#include <fstream>
 #include <type_traits>
 
 #include "TH1D.h"
 #include "TH2D.h"
+#include "TFile.h"
 
 template<typename T>
 std::vector<T> operator+(const std::vector<T>& v1, const std::vector<T>& v2) {
@@ -51,6 +53,16 @@ protected:
                 Phi_Sigma = Theta_Sigma/sin(Theta);
             else
                 Phi_Sigma = 1*TMath::DegToRad();
+        }
+        void SetFromParticle(const Particle& p, const vector<double>& sigmas)
+        {
+            Ek = p.Ek();
+            Theta = p.Theta();
+            Phi = p.Phi();
+
+            Ek_Sigma = sigmas.at(0);
+            Theta_Sigma = sigmas.at(1)*TMath::DegToRad();
+            Phi_Sigma = sigmas.at(2)*TMath::DegToRad();
         }
 
         static TLorentzVector Make(const std::vector<double>& EkThetaPhi, const Double_t m);
@@ -255,6 +267,37 @@ protected:
     std::vector<TH1*> im_q2_prompt;
     std::vector<TH1*> im_q2_random;
     std::vector<TH1*> im_q2_diff;
+
+    // corrections, uncertainties
+    std::vector<double> cb_gain;
+    std::vector<double> taps_gain;
+    std::vector<double> cb_time_correction;
+    TH2D* cb_energy_correction;
+    TH2D* taps_energy_correction;
+    TH1D* cb_theta_correction;
+    TH1D* taps_theta_correction;
+    TH2D* photon_energy_uncertainties;
+    TH2D* photon_theta_uncertainties;
+    TH2D* photon_phi_uncertainties;
+    TH2D* proton_energy_uncertainties;
+    TH2D* proton_theta_uncertainties;
+    TH2D* proton_phi_uncertainties;
+
+    // read histogram from file and return pointer to the object
+    TH1* read_hist(const char*, const char*) const;
+    void read_file(const char*, std::vector<double>&, const int = 0);
+
+    void set_fit_particle(const Particle&, FitParticle&);
+    // uncertainties
+    void get_uncertainties(const Particle&, vector<double>&);
+    double get_sigma_energy(const Particle&) const;
+    double get_sigma_theta(const Particle&) const;
+    double get_sigma_phi(const Particle&) const;
+    double get_sigma(const Particle&, TH2* const) const;
+    // corrections
+    void apply_time_correction(const TrackList&, const TrackList&);
+    void apply_energy_correction(const TrackList&, const TrackList&);
+    void apply_theta_correction(const TrackList&, const TrackList&);
 
     void FillIM(TH1* h, const std::vector<FitParticle>& final_state);
 
