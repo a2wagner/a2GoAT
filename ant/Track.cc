@@ -18,3 +18,18 @@ ostream& Track::Print(ostream &stream) const
            << " ShortEnergy=" << ShortEnergy();
     return stream;
 }
+
+void Track::SetClusterEnergy(const mev_t e)
+{
+    clusterEnergy = e;
+}
+
+void Track::SetTheta(const radian_t t)
+{
+    theta = t;
+}
+
+void Track::SetTime(const ns_t t)
+{
+    time = t;
+}

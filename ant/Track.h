@@ -75,6 +75,9 @@ public:
 
     virtual std::ostream &Print(std::ostream &stream) const;
 
+    void SetClusterEnergy(const mev_t);
+    void SetTheta(const radian_t);
+    void SetTime(const ns_t);
 };
 
 using TrackPtr  = std::shared_ptr<Track>;
