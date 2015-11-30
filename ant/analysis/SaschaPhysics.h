@@ -11,6 +11,7 @@
 #include <vector>
 #include <map>
 #include <random>
+#include <type_traits>
 
 #include "TH1D.h"
 #include "TH2D.h"
@@ -20,6 +21,14 @@ std::vector<T> operator+(const std::vector<T>& v1, const std::vector<T>& v2) {
     std::vector<T> v = v1;
     v.insert(v.end(),v2.begin(),v2.end());
     return v;
+}
+
+template<typename T>
+const size_t sum_vector(const std::vector<T>& v, typename std::enable_if<std::is_arithmetic<T>::value>::type* = 0)
+{
+    size_t sum = 0;
+    for_each(v.cbegin(), v.cend(), [&sum](T n){ sum += n; });
+    return sum;
 }
 
 namespace ant {
