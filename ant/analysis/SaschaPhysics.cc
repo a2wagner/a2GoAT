@@ -304,6 +304,10 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     AddHistogram("proton_energy_delta", "#DeltaE_{proton} reconstructed - fitted", "E [MeV]", "#", energy_range_bins);
     AddHistogram("proton_angle_TAPS_expected", "Opening Angle reconstr. Cluster_{TAPS} - expected proton",
                  "opening angle [#circ]", "#", angle_bins);
+    AddHistogram("protons_found", "#Protons in predicted cone", "#protons", "#", BinSettings(5));
+    AddHistogram("nTAPS_vs_protons_found", "#clusters in TAPS vs. #protons in predicted cone", "#protons", "#clusters TAPS",
+                 BinSettings(5), BinSettings(5));
+    AddHistogram("protons_diff_clusters", "#different TAPS clusters identified as proton", "#clusters", "#",BinSettings(5));
 
     AddHistogram("coplanarity", "Coplanarity #eta' proton", "Coplanarity [#circ]", "#", phi_bins);
     AddHistogram("missing_mass", "Missing Mass Proton", "m_{miss} [MeV]", "#", energy_bins);
@@ -1064,6 +1068,14 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     protons_found->Fill(proton_count);
     const size_t protons_found_prompt = sum_vector(taps_cluster_as_proton_prompt);
     const size_t protons_found_random = sum_vector(taps_cluster_as_proton_random);
+    prompt["protons_found"]->Fill(protons_found_prompt);
+    random["protons_found"]->Fill(protons_found_random);
+    prompt["nTAPS_vs_protons_found"]->Fill(protons_found_prompt, tracksTAPS.size());
+    random["nTAPS_vs_protons_found"]->Fill(protons_found_random, tracksTAPS.size());
+    const size_t diff_clusters_prompt = non_zero_entries(taps_cluster_as_proton_prompt);
+    const size_t diff_clusters_random = non_zero_entries(taps_cluster_as_proton_random);
+    prompt["protons_diff_clusters"]->Fill(diff_clusters_prompt);
+    random["protons_diff_clusters"]->Fill(diff_clusters_random);
 }
 
 void ant::analysis::SaschaPhysics::Finish()
