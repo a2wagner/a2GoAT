@@ -732,6 +732,10 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         tagger_hits = event.Reconstructed().TaggerHits();
 
     size_t proton_count = 0;
+    vector<size_t> taps_cluster_as_proton_prompt;
+    vector<size_t> taps_cluster_as_proton_random;
+    taps_cluster_as_proton_prompt.resize(tracksTAPS.size());
+    taps_cluster_as_proton_random.resize(tracksTAPS.size());
     constexpr double proton_cone = 4.;
     for (const auto& taggerhit : tagger_hits) {
         tagger_spectrum->Fill(taggerhit->PhotonEnergy());
@@ -764,6 +768,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
             expected_proton_diff_vs_q2_rebin->Fill(q2_true, expected_proton.Angle(true_proton.Vect())*TMath::RadToDeg());
         }
         bool proton_found = false;
+        size_t i = 0;
         for (const auto& track : tracksTAPS) {
             proton_candidate = Particle(ParticleTypeDatabase::Proton, track);
             if (expected_proton.Angle(proton_candidate.Vect())*TMath::RadToDeg() < proton_cone) {
@@ -772,7 +777,12 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
                 proton_found = true;
                 //break;
                 proton_count++;
+                if (is_prompt)
+                    taps_cluster_as_proton_prompt[i]++;
+                else
+                    taps_cluster_as_proton_random[i]++;
             }
+            i++;
         }
         if (!proton_found)
             continue;
@@ -1035,6 +1045,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     prompt["n_tagged"]->Fill(prompt_n_tagger);
     random["n_tagged"]->Fill(random_n_tagger);
     protons_found->Fill(proton_count);
+    const size_t protons_found_prompt = sum_vector(taps_cluster_as_proton_prompt);
+    const size_t protons_found_random = sum_vector(taps_cluster_as_proton_random);
 }
 
 void ant::analysis::SaschaPhysics::Finish()
