@@ -33,6 +33,12 @@ const size_t sum_vector(const std::vector<T>& v, typename std::enable_if<std::is
     return sum;
 }
 
+template<typename T>
+const size_t non_zero_entries(const std::vector<T>& v, typename std::enable_if<std::is_arithmetic<T>::value>::type* = 0)
+{
+    return count_if(v.cbegin(), v.cend(), [](T i){ return !i; });
+}
+
 namespace ant {
 namespace analysis {
 
