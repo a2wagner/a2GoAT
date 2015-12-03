@@ -941,8 +941,10 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 //        for_each(begin(myv1), end(myv1), [](double& a) { a *= 3; });
 
         beam.SetFromVector(taggerhit->PhotonBeam());
-        // set beam energy sigma to 2 MeV
-        beam.Ek_Sigma = 2.;
+        // set beam sigmas, energy 2/sqrt(3)
+        beam.Ek_Sigma = 1.1547;
+        beam.Theta_Sigma = .0001;
+        beam.Phi_Sigma = .0001;
 
         FillIM(h["im_true"], final_state);
 
