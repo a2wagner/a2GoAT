@@ -1439,7 +1439,88 @@ double ant::analysis::SaschaPhysics::get_sigma_phi(const Particle& p) const
 
 double ant::analysis::SaschaPhysics::get_sigma(const Particle& p, TH2* const h) const
 {
-    return static_cast<double>(h->GetBinContent(h->FindBin(p.Ek(), p.Theta()*TMath::RadToDeg())));
+    int bin;
+    if (p.Type() == ParticleTypeDatabase::Proton)
+        bin = h->FindBin(p.Tracks().front()->CentralCrystal());
+    else
+        bin = h->FindBin(p.Ek(), p.Theta()*TMath::RadToDeg());
+    double sigma = static_cast<double>(h->GetBinContent(bin));
+    if (sigma < EPSILON)
+        sigma = local_bin_average(h, bin);
+
+    return sigma;
+}
+
+// select ring of neighbouring bins, depth defines how many rings
+// store valid bin contents in passed vector (not under-/overflow, above epsilon (threshold for empty bins))
+// returns size of possible neighbours
+size_t ant::analysis::SaschaPhysics::get_histogram_neigbours(TH1* const h,
+                                                             const int bin,
+                                                             vector<double>& values,
+                                                             const int depth) const
+{
+    if (depth < 1) {
+        cerr << "Depth of neighbouring crystals has to be greater than 0!" << endl;
+        return 0;
+    }
+
+    values.clear();
+    const int dim = h->GetDimension();
+    const int overflow_bin_x = h->GetNbinsX() + 1;
+    size_t possible_neighbours = 0;
+    if (dim == 1) {
+        for (int x = bin - depth; x <= bin + depth; x++) {
+            possible_neighbours++;
+            if (x < 1)
+                continue;
+            if (x >= overflow_bin_x)
+                continue;
+
+            double content = static_cast<double>(h->GetBinContent(x));
+            if (content > EPSILON)
+                values.push_back(content);
+        }
+    } else if (dim == 2) {
+        const int bins_x = h->GetNbinsX() + 2;
+        const int bins = bins_x*(h->GetNbinsY()+2);
+        for (int x = -depth; x <= depth; x++)
+            for (int y = -depth; y <= depth; y++) {
+                possible_neighbours++;
+                int i = (bin + x) + y*(bins_x);
+                if (i < 1 || i >= bins)
+                    continue;
+                if (h->IsBinUnderflow(i) || h->IsBinOverflow(i))
+                    continue;
+
+                double content = static_cast<double>(h->GetBinContent(i));
+                if (content > EPSILON)
+                    values.push_back(content);
+            }
+    } else
+        cerr << "histogram dimension " << dim << " not supported" << endl;
+
+    return possible_neighbours;
+}
+
+// get a local bin average based on neighbouring bins
+// amount of neighbours taken into account is based on how many valid bins surround the bin of interest
+double ant::analysis::SaschaPhysics::local_bin_average(TH1* const h, const int bin) const
+{
+    if (!h) {
+        cerr << "No valid histogram given!" << endl;
+        return 0;
+    }
+
+    vector<double> values;
+    size_t neighbours = get_histogram_neigbours(h, bin, values);
+    if (values.size()/neighbours < .3)
+        get_histogram_neigbours(h, bin, values, 2);
+    if (!values.size()) {
+        cerr << "Couldn't find any neighbouring bins to calculate average" << endl;
+        return 0;
+    }
+
+    return sum_vector(values)/values.size();
 }
 
 void ant::analysis::SaschaPhysics::apply_time_correction(const TrackList& tracksCB, const TrackList& tracksTAPS)

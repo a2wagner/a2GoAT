@@ -223,6 +223,8 @@ protected:
     static constexpr double CLUSTER_TRESH = 25.;
     // threshold for CB energy sum
     static constexpr double CB_ESUM = 500.;
+    // threshold to check if double value should be treated as zero
+    static constexpr double EPSILON = 1e-10;
 
     size_t nParticles, nParticlesCB, nParticlesTAPS;
 
@@ -322,6 +324,9 @@ protected:
     const Particle get_true_photon(const ParticleList&);
     const Particle get_true_proton(const ParticleList&);
     void proton_tests(const TrackList&, const TaggerHitPtr);
+
+    size_t get_histogram_neigbours(TH1* const, const int, vector<double>&, const int depth = 1) const;
+    double local_bin_average(TH1* const, const int) const;
 
     APLCON fitter;
     FitParticle beam;
