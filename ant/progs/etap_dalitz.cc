@@ -1,5 +1,7 @@
 #ifndef __CINT__
 
+#include <signal.h>
+
 #include "TRint.h"
 #include "EventManager.h"
 #include <time.h>
@@ -18,6 +20,11 @@ TFile* OpenAsOutput(const std::string& filename) {
     return file;
 }
 
+void segfault_sigaction(int signal, siginfo_t *si, void *arg)
+{
+    printf("Caught segfault at address %p\n", si->si_addr);
+    exit(0);
+}
 
 TRint* LaunchRint(const std::string& name, int argc, char** argv, const int root_options_at) {
 
@@ -120,6 +127,15 @@ int main(int argc, char *argv[])
     ant_output->Write();
 
     app->Run(kTRUE);
+
+    // prepare to catch segfault due to TGX11::CloseDisplay() calling XCloseDisplay() with nullptr
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(struct sigaction));
+    sigemptyset(&sa.sa_mask);
+    sa.sa_sigaction = segfault_sigaction;
+    sa.sa_flags = SA_SIGINFO;
+    sigaction(SIGSEGV, &sa, NULL);
+    cout << "Segfault incoming, closing TRint" << endl;
 
     delete app;
 
