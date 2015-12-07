@@ -385,6 +385,9 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     cout << "Random window 1: " << random_window1 << " ns\n";
     cout << "Random window 2: " << random_window2 << " ns\n";
 
+    // save current directory for later usage (ROOT changes it while reading stuff)
+    const char* dir = gDirectory->GetPath();
+
     // read in histograms with uncertainties and corrections as well as correction factors from files
     read_file("files/data.2014.07/CB_lingain.txt", cb_gain);
     read_file("files/data.2014.07/TAPS_lingain.txt", taps_gain);
@@ -574,6 +577,10 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
 
     // create pull histograms
     const BinSettings pull_bins(50,-3,3);
+    // change back to former directory to store pulls
+    gDirectory->cd(dir);
+    gDirectory->mkdir("Pulls");
+    gDirectory->cd("Pulls");
     for (const auto& varname : fitter.VariableNames()) {
         string title(varname);
         size_t pos = title.find("[");
