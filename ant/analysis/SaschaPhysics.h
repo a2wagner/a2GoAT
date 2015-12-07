@@ -257,6 +257,7 @@ protected:
     TH2D* lepton_energies_true;
     TH1D* energy_lepton1_true;
     TH1D* energy_lepton2_true;
+    TH1D* energy_photon_cm_true;
     TH2D* n_cluster_cb_vs_q2;
     TH2D* n_cluster_taps_vs_q2;
     TH2D* n_cluster_cb_vs_open_angle;

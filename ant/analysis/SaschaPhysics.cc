@@ -293,6 +293,7 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
                  "#Crystals", q2_bins, count_bins);
     AddHistogram("energy_vs_momentum_z_balance", "Energy vs. p_{z} balance", "p_{z} [GeV]", "Energy [GeV]",
                  energy_range_bins, energy_range_bins);
+    AddHistogram("energy_photon_cm", "Energy Photon CM", "E [MeV]", "#", energy_bins);
 
     AddHistogram("opening_angle_leptons", "Lepton opening angle", "Opening angle [#circ]", "#", theta_bins);
     AddHistogram("energy_lepton1", "Energy 1st lepton", "E [MeV]", "#", energy_bins);
@@ -457,6 +458,8 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
                                            "energy_lepton1_true");
     energy_lepton2_true = HistFac.makeTH1D("True energy lower energetic lepton", "E_{true} [MeV]", "#", true_energy_bins,
                                            "energy_lepton2_true");
+    energy_photon_cm_true = HistFac.makeTH1D("True Photon CM Energy", "E_{true} [MeV]", "#", true_energy_bins,
+                                             "energy_photon_cm_true");
     n_cluster_cb_vs_q2 = HistFac.makeTH2D("Number of Clusters in CB vs. q^{2}", "q^{2} [MeV]", "#clusters",
                                           q2_bins, BinSettings(6), "n_cluster_cb_vs_q2");
     n_cluster_taps_vs_q2 = HistFac.makeTH2D("Number of Clusters in TAPS vs. q^{2}", "q^{2} [MeV]", "#clusters",
@@ -885,6 +888,9 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
             etap += *it;
         double q2 = (particles.at(0) + particles.at(1)).M();
         h["q2_im_base_selection"]->Fill(etap.M(), q2);
+        TLorentzVector* photon_cm = static_cast<TLorentzVector*>(particles.at(2).Clone());
+        photon_cm->Boost(-etap.BoostVector());
+        h["energy_photon_cm"]->Fill(photon_cm->E());
 
         // perform cut on PID elements to suppress conversion lepton pairs
         element_index_t pid1 = particles.at(0).Tracks().front()->CentralVeto(),
@@ -1203,6 +1209,7 @@ void ant::analysis::SaschaPhysics::fill_MC_true(const ParticleList& particles, c
     Particle eMinus_true = true_part.at(1);
     Particle photon_true = true_part.at(2);
     Particle proton_true = true_part.at(3);
+    TLorentzVector etap_true = ePlus_true + eMinus_true + photon_true;
 
     double lepton_open_angle_true = ePlus_true.Angle(eMinus_true.Vect())*TMath::RadToDeg();
     double q2 = (ePlus_true + eMinus_true).M();
@@ -1229,6 +1236,10 @@ void ant::analysis::SaschaPhysics::fill_MC_true(const ParticleList& particles, c
     lepton_energies_true->Fill(en_lep1_true, en_lep2_true);
     energy_lepton1_true->Fill(en_lep1_true);
     energy_lepton2_true->Fill(en_lep2_true);
+
+    TLorentzVector* photon_cm = static_cast<TLorentzVector*>(photon_true.Clone());
+    photon_cm->Boost(-etap_true.BoostVector());
+    energy_photon_cm_true->Fill(photon_cm->E());
 }
 
 void ant::analysis::SaschaPhysics::proton_tests(const TrackList& tracks, const TaggerHitPtr taggerhit)
