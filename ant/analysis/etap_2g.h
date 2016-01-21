@@ -11,15 +11,32 @@
 #include <vector>
 #include <map>
 #include <random>
+#include <fstream>
+#include <type_traits>
 
 #include "TH1D.h"
 #include "TH2D.h"
+#include "TFile.h"
 
 template<typename T>
 std::vector<T> operator+(const std::vector<T>& v1, const std::vector<T>& v2) {
     std::vector<T> v = v1;
     v.insert(v.end(),v2.begin(),v2.end());
     return v;
+}
+
+template<typename T>
+const size_t sum_vector(const std::vector<T>& v, typename std::enable_if<std::is_arithmetic<T>::value>::type* = 0)
+{
+    size_t sum = 0;
+    for_each(v.cbegin(), v.cend(), [&sum](T n){ sum += n; });
+    return sum;
+}
+
+template<typename T>
+const size_t non_zero_entries(const std::vector<T>& v, typename std::enable_if<std::is_arithmetic<T>::value>::type* = 0)
+{
+    return count_if(v.cbegin(), v.cend(), [](T i){ return i; });
 }
 
 namespace ant {
@@ -42,6 +59,16 @@ protected:
                 Phi_Sigma = Theta_Sigma/sin(Theta);
             else
                 Phi_Sigma = 1*TMath::DegToRad();
+        }
+        void SetFromParticle(const Particle& p, const vector<double>& sigmas)
+        {
+            Ek = p.Ek();
+            Theta = p.Theta();
+            Phi = p.Phi();
+
+            Ek_Sigma = sigmas.at(0);
+            Theta_Sigma = sigmas.at(1)*TMath::DegToRad();
+            Phi_Sigma = sigmas.at(2)*TMath::DegToRad();
         }
 
         static TLorentzVector Make(const std::vector<double>& EkThetaPhi, const Double_t m);
@@ -122,12 +149,36 @@ protected:
                           const double y_bins_low,      // lower bound of y axis
                           const double y_bins_up        // upper bound of y axis
                           );
-        void AddHistogram(const string &name,
-                          const string &title,
-                          const string &x_label,
-                          const string &y_label,
+        void AddHistogram(const std::string &name,
+                          const std::string &title,
+                          const std::string &x_label,
+                          const std::string &y_label,
                           const BinSettings &x_bins,
                           const BinSettings &y_bins);
+
+        // Add 3D histogram
+        void AddHistogram(const std::string& name,      // short specifier for histogram
+                          const std::string& title,     // descriptive title for histogram
+                          const std::string& x_label,   // x axis label
+                          const std::string& y_label,   // y axis label
+                          const std::string& z_label,   // z axis label
+                          const int x_bins_n,           // number of bins in x
+                          const double x_bins_low,      // lower bound of x axis
+                          const double x_bins_up,       // upper bound of y axis
+                          const int y_bins_n,           // number of bins in y
+                          const double y_bins_low,      // lower bound of y axis
+                          const double y_bins_up,       // upper bound of y axis
+                          const int z_bins_n,           // number of bins in z
+                          const double z_bins_low,      // lower bound of z axis
+                          const double z_bins_up);      // upper bound of z axis
+        void AddHistogram(const std::string &name,
+                          const std::string &title,
+                          const std::string &x_label,
+                          const std::string &y_label,
+                          const std::string &z_label,
+                          const BinSettings &x_bins,
+                          const BinSettings &y_bins,
+                          const BinSettings &z_bins);
 
         HistList(const std::string& prefix, const mev_t energy_scale = 1000.0);
 
@@ -162,16 +213,41 @@ protected:
 
     // choose here what you want to do
     // please also provide GoAT trees with matching MC true information...
-    static constexpr bool includeCoplanarityConstraint = true;
+    static constexpr bool includeCoplanarityConstraint = false;
     static constexpr bool includeIMconstraint = false;
     static constexpr bool includeVertexFit = false;
     static constexpr size_t nFinalState = 3;
     //const double IM = ParticleTypeDatabase::EtaPrime.Mass();
     static constexpr double IM = 957.78;
+    // threshold for cluster energies
+    static constexpr double CLUSTER_TRESH = 25.;
+    // threshold for CB energy sum
+    static constexpr double CB_ESUM = 500.;
+    // distance to TAPS [cm]
+    static constexpr double TAPS_DISTANCE = 145;
+    // radius CB [cm]
+    static constexpr double RADIUS_CB = 25.4;
+    // threshold to check if double value should be treated as zero
+    static constexpr double EPSILON = 1e-10;
 
     size_t nParticles, nParticlesCB, nParticlesTAPS;
 
     std::map<const ParticleTypeDatabase::Type*, TH1D*> numParticleType;
+
+    // store true particle information in case of MC (if used)
+    particle_vector true_particles;
+
+    // histogram to keep track of efficencies
+    TH1D* accepted_events;
+    // histograms before prompt / random handling
+    TH1D* cb_esum;
+    TH2D* pid;
+    TH1D* tagger_spectrum;
+    TH1D* tagger_time;
+    TH1D* particle_types;
+    TH1D* n_part;
+    TH1D* n_cluster_cb;
+    TH1D* n_cluster_taps;
 
     std::map<std::string, TH1*> pulls_prompt;
     std::map<std::string, TH1*> pulls_random;
@@ -184,15 +260,56 @@ protected:
     std::vector<TH1*> im_q2_random;
     std::vector<TH1*> im_q2_diff;
 
+    // corrections, uncertainties
+    std::vector<double> cb_gain;
+    std::vector<double> taps_gain;
+    std::vector<double> cb_time_correction;
+    TH2D* cb_energy_correction;
+    TH2D* taps_energy_correction;
+    TH1D* cb_theta_correction;
+    TH1D* taps_theta_correction;
+    TH2D* photon_energy_uncertainties;
+    TH2D* photon_theta_uncertainties;
+    TH2D* photon_phi_uncertainties;
+    TH2D* proton_energy_uncertainties;
+    TH2D* proton_theta_uncertainties;
+    TH2D* proton_phi_uncertainties;
+
+    // read histogram from file and return pointer to the object
+    TH1* read_hist(const char*, const char*) const;
+    void read_file(const char*, std::vector<double>&, const int = 0);
+
+    void set_fit_particle(const Particle&, FitParticle&);
+    // uncertainties
+    void get_uncertainties(const Particle&, vector<double>&);
+    double get_sigma_energy(const Particle&) const;
+    double get_sigma_theta(const Particle&) const;
+    double get_sigma_phi(const Particle&) const;
+    double get_sigma(const Particle&, TH2* const) const;
+    // corrections
+    void apply_time_correction(const TrackList&, const TrackList&);
+    void apply_energy_correction(const TrackList&, const TrackList&);
+    void apply_theta_correction(const TrackList&, const TrackList&);
+
     void FillIM(TH1* h, const std::vector<FitParticle>& final_state);
 
     // collect particles
+    void GetTracks(const Event& event, TrackList& tracksCB, TrackList& tracksTAPS);
+    bool IdentifyTracks(const TrackList& tracksCB, const TrackList& tracksTAPS, particle_vector& particles);
     void GetParticles(const ant::Event& event, particle_vector& particles);
     void GetTrueParticles(const ant::Event& event, particle_vector& particles);
+
+    void sort_particles(particle_vector&);
+    const particle_vector get_MC_true_particles(const ParticleList&);
+    const Particle get_true_particle(const ParticleList&, const size_t);
+
+    size_t get_histogram_neigbours(TH1* const, const int, vector<double>&, const int depth = 1) const;
+    double local_bin_average(TH1* const, const int) const;
 
     APLCON fitter;
     FitParticle beam;
     std::vector<FitParticle> final_state;
+    std::vector<ant::detector_t> detectors;
     FitParticle proton;
 
 
