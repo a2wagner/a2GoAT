@@ -480,10 +480,11 @@ void ant::analysis::etap_2g::ProcessEvent(const ant::Event &event)
 
     cb_esum->Fill(event.Reconstructed().TriggerInfos().CBEenergySum());
 
-    if (event.Reconstructed().TriggerInfos().CBEenergySum() < CB_ESUM)
+    if (MC && event.Reconstructed().TriggerInfos().CBEenergySum() < CB_ESUM)
         return;
 
-    accepted_events->Fill("CB Esum", 1);
+    if (MC)
+        accepted_events->Fill("CB Esum", 1);
 
     for (const auto& track : event.Reconstructed().Tracks()) {
         pid->Fill(track->ClusterEnergy(), track->VetoEnergy());
