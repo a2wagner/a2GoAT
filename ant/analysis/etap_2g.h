@@ -248,6 +248,13 @@ protected:
     TH1D* n_part;
     TH1D* n_cluster_cb;
     TH1D* n_cluster_taps;
+    TH1D* cluster_time;
+    TH1D* cb_time;
+    TH1D* taps_time;
+    TH1D* cb_time_avg;
+    TH1D* cb_avg_tagger_time_diff;
+    TH1D* cb_avg_taps_time_diff;
+    TH2D* energy_vs_cb_avg_taps_time_diff;
 
     std::map<std::string, TH1*> pulls_prompt;
     std::map<std::string, TH1*> pulls_random;
@@ -299,6 +306,7 @@ protected:
     void GetParticles(const ant::Event& event, particle_vector& particles);
     void GetTrueParticles(const ant::Event& event, particle_vector& particles);
 
+    double calculate_energy_weighted_cb_time_average(const TrackList&) const;
     void sort_particles(particle_vector&);
     const particle_vector get_MC_true_particles(const ParticleList&);
     const Particle get_true_particle(const ParticleList&, const size_t);

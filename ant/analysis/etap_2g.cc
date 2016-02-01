@@ -337,8 +337,7 @@ ant::analysis::etap_2g::etap_2g(const mev_t energy_scale) :
     const BinSettings energy_tagger(200, 1400, 1600);
     const BinSettings time_tagger(1300, -650, 650);
     const BinSettings particle_bins(10);
-    const BinSettings chi2_bins(150, 0, 50);
-    const BinSettings q2_bins(2000, 0, 1000);
+    const BinSettings time_bins(1000, -50, 50);
     cb_esum = HistFac.makeTH1D("CB Energy Sum", "E [MeV]", "#", energy_bins, "cb_esum");
     pid = HistFac.makeTH2D("PID Bananas", "Cluster Energy [MeV]", "Veto Energy [MeV]", energy_bins, veto_bins, "pid");
     tagger_spectrum = HistFac.makeTH1D("Tagger Spectrum", "Photon Beam Energy [MeV]", "#", energy_tagger, "tagger_spectrum");
@@ -347,6 +346,16 @@ ant::analysis::etap_2g::etap_2g(const mev_t energy_scale) :
     n_part = HistFac.makeTH1D("Number of particles", "#particles", "#", particle_bins, "n_part");
     n_cluster_cb = HistFac.makeTH1D("Number of Clusters in CB", "#particles", "#", particle_bins, "n_cluster_cb");
     n_cluster_taps = HistFac.makeTH1D("Number of Clusters in TAPS", "#particles", "#", particle_bins, "n_cluster_taps");
+    cluster_time = HistFac.makeTH1D("Cluster Time", "time [ns]", "#", time_tagger, "cluster_time");
+    cb_time = HistFac.makeTH1D("CB Time", "time [ns]", "#", time_tagger, "cb_time");
+    taps_time = HistFac.makeTH1D("TAPS Time", "time [ns]", "#", time_tagger, "taps_time");
+    cb_time_avg = HistFac.makeTH1D("Energy weighted CB time average", "avg time [ns]", "#", time_bins, "cb_time_avg");
+    cb_avg_tagger_time_diff = HistFac.makeTH1D("Time difference CB average and Tagger", "time [ns]", "#", time_tagger,
+                                               "cb_avg_tagger_time_diff;");
+    cb_avg_taps_time_diff = HistFac.makeTH1D("Time difference CB average and TAPS elemets", "time [ns]", "#", time_bins,
+                                             "cb_avg_taps_time_diff");
+    energy_vs_cb_avg_taps_time_diff = HistFac.makeTH2D("Energy vs. Time difference CB average and TAPS elemets", "time [ns]",
+                                                       "E [MeV]", time_bins, energy_bins, "energy_vs_cb_avg_taps_time_diff");
 
     // prepare invM histograms for different q2 ranges
     int start_range = 0;
@@ -488,6 +497,12 @@ void ant::analysis::etap_2g::ProcessEvent(const ant::Event &event)
 
     for (const auto& track : event.Reconstructed().Tracks()) {
         pid->Fill(track->ClusterEnergy(), track->VetoEnergy());
+        // fill time information
+        cluster_time->Fill(track->Time());
+        if (track->Detector() & detector_t::anyCB)
+            cb_time->Fill(track->Time());
+        else
+            taps_time->Fill(track->Time());
     }
 
     // determine #clusters per event per detector
@@ -504,6 +519,13 @@ void ant::analysis::etap_2g::ProcessEvent(const ant::Event &event)
     //printf("Particles found: %zu CB, %zu TAPS\n", tracksCB.size(), tracksTAPS.size());
     n_cluster_cb->Fill(tracksCB.size());
     n_cluster_taps->Fill(tracksTAPS.size());
+
+    const double cb_time_avg_energy_weighted = calculate_energy_weighted_cb_time_average(tracksCB);
+    cb_time_avg->Fill(cb_time_avg_energy_weighted);
+    for (const auto& track: tracksTAPS) {
+        cb_avg_taps_time_diff->Fill(cb_time_avg_energy_weighted - track->Time());
+        energy_vs_cb_avg_taps_time_diff->Fill(cb_time_avg_energy_weighted - track->Time(), track->ClusterEnergy());
+    }
 
     n_part->Fill(event.Reconstructed().Tracks().size());
     for (auto& particle : event.Reconstructed().Particles().GetAll()) {
@@ -533,6 +555,9 @@ void ant::analysis::etap_2g::ProcessEvent(const ant::Event &event)
     for (const auto& taggerhit : tagger_hits) {
         tagger_spectrum->Fill(taggerhit->PhotonEnergy());
         tagger_time->Fill(taggerhit->Time());
+
+        const double cb_avg_tagger_time = taggerhit->Time() - cb_time_avg_energy_weighted;
+        cb_avg_tagger_time_diff->Fill(cb_avg_tagger_time);
 
         // determine if the event is in the prompt or random window
         bool is_prompt = false;
@@ -823,6 +848,16 @@ const Particle ant::analysis::etap_2g::get_true_particle(const ParticleList& par
         return get_MC_true_particles(particles).at(pos);
     else
         return true_particles.at(pos);
+}
+
+double ant::analysis::etap_2g::calculate_energy_weighted_cb_time_average(const TrackList& tracks) const
+{
+    double time = 0, e_sum = 0;
+    for (const auto& track : tracks) {
+        time += track->Time();
+        e_sum += track->ClusterEnergy();
+    }
+    return time/e_sum;
 }
 
 void ant::analysis::etap_2g::GetTracks(const Event& event, TrackList& tracksCB, TrackList& tracksTAPS)
