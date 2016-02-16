@@ -1050,11 +1050,16 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         accepted_events->Fill("#chi^{2} cut", 1);
 
         // fill the invM histograms for different q2 ranges
-        if (q2_after < im_q2_upper_bound) {
-            if (is_prompt)
-                im_q2_prompt.at(static_cast<int>(q2_after/im_q2_mev_steps))->Fill(etap_fit.M());
-            else
-                im_q2_random.at(static_cast<int>(q2_after/im_q2_mev_steps))->Fill(etap_fit.M());
+        try {
+            if (q2_after < im_q2_upper_bound) {
+                if (is_prompt)
+                    im_q2_prompt.at(static_cast<int>(q2_after/im_q2_mev_steps))->Fill(etap_fit.M());
+                else
+                    im_q2_random.at(static_cast<int>(q2_after/im_q2_mev_steps))->Fill(etap_fit.M());
+            }
+        } catch (const std::out_of_range& oor) {
+            std::cerr << "Out of Range error: " << oor.what() << '\n';
+            cerr << "q2_after: " << q2_after << ", im_q2_upper_bound: " << im_q2_upper_bound << endl;
         }
 
         h["im_cut"]->Fill(etap.M());
