@@ -246,12 +246,11 @@ protected:
     TH1D* n_cluster_taps;
     TH1D* etap_chi2;
     TH2D* etap_chi2_vs_q2;
+    TH2D* q2_vs_im_candidates;
     // pi0 background tests
     TH1D* sub_pi0_cand_im;
-    TH1D* sub_pi0_cand_chi2;
-    TH1D* sub_pi0_cand_pdf;
-    TH1D* sub_pi0_cand_im_fit;
     TH1D* sub_pi0_cand_im_cut;
+    TH2D* q2_vs_im_pi0_cut;
     // different MC true information
     TH2D* eplus_true_theta_vs_energy;
     TH2D* eminus_true_theta_vs_energy;
@@ -342,10 +341,6 @@ protected:
     // eta' fitter
     APLCON etap_fit;
     std::vector<FitParticle> etap_fs;
-    // pi0 fitter
-    APLCON pi0_fit;
-    std::vector<FitParticle> pi0_cand;
-    std::vector<FitParticle> pi0_fs;
 
 
 public:

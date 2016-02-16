@@ -268,7 +268,6 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     // im vs q2 histograms before and after several cuts
     AddHistogram("q2_im_base_selection", "q^{2} vs. IM - Base Selection", "IM [MeV]", "q^{2} [MeV]", im_bins, q2_bins);
     AddHistogram("q2_im_pid_cut", "q^{2} vs. IM - PID Cut", "IM [MeV]", "q^{2} [MeV]", im_bins, q2_bins);
-    AddHistogram("q2_im_pion_cut", "q^{2} vs. IM - #pi^{0} Cut", "IM [MeV]", "q^{2} [MeV]", im_bins, q2_bins);
     AddHistogram("q2_im_miss_mass", "q^{2} vs. IM - Missing Mass", "IM [MeV]", "q^{2} [MeV]", im_bins, q2_bins);
     AddHistogram("q2_im_before_fit", "q^{2} vs. IM - Before KinFit", "IM [MeV]", "q^{2} [MeV]", im_bins, q2_bins);
     AddHistogram("q2_im_after_fit", "q^{2} vs. IM - After KinFit", "IM [MeV]", "q^{2} [MeV]", im_bins, q2_bins);
@@ -295,10 +294,6 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     AddHistogram("energy_vs_momentum_z_balance", "Energy vs. p_{z} balance", "p_{z} [GeV]", "Energy [GeV]",
                  energy_range_bins, energy_range_bins);
     AddHistogram("energy_photon_cm", "Energy Photon CM", "E [MeV]", "#", energy_bins);
-    AddHistogram("sub_im_lepton1", "Invariant Mass Photon + Lepton 1", "IM [MeV]", "#", q2_bins);
-    AddHistogram("sub_im_lepton2", "Invariant Mass Photon + Lepton 2", "IM [MeV]", "#", q2_bins);
-    AddHistogram("sub_im_lepton1_vs_lepton2", "IM Photon + Lepton 1 vs. Lepton 2", "IM(g+l_{2}) [MeV]", "IM(g+l_{1}) [MeV]",
-                 q2_bins, q2_bins);
 
     AddHistogram("opening_angle_leptons", "Lepton opening angle", "Opening angle [#circ]", "#", theta_bins);
     AddHistogram("energy_lepton1", "Energy 1st lepton", "E [MeV]", "#", energy_bins);
@@ -384,10 +379,7 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     fitter("SaschaPhysics"),
     final_state(nFinalState),
     etap_fit("eta' fitter"),
-    etap_fs(3),
-    pi0_fit("pi0 fitter"),
-    pi0_cand(3),
-    pi0_fs(2)
+    etap_fs(3)
 {
     cout << "Eta' Dalitz Physics:\n";
     cout << "Prompt window: " << prompt_window << " ns\n";
@@ -428,8 +420,8 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     const BinSettings time_tagger(1300, -650, 650);
     const BinSettings particle_bins(10);
     const BinSettings chi2_bins(150, 0, 50);
-    const BinSettings pdf_bins(10000, 0, 1);
     const BinSettings q2_bins(2000, 0, 1000);
+    const BinSettings im_bins(200, IM-100, IM+100);
     cb_esum = HistFac.makeTH1D("CB Energy Sum", "E [MeV]", "#", energy_bins, "cb_esum");
     pid = HistFac.makeTH2D("PID Bananas", "Cluster Energy [MeV]", "Veto Energy [MeV]", energy_bins, veto_bins, "pid");
     tagger_spectrum = HistFac.makeTH1D("Tagger Spectrum", "Photon Beam Energy [MeV]", "#", energy_tagger, "tagger_spectrum");
@@ -441,14 +433,14 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     etap_chi2 = HistFac.makeTH1D("#chi^{2} Fit #eta' (particle selection)", "#chi^{2}", "#", chi2_bins, "etap_chi2");
     etap_chi2_vs_q2 = HistFac.makeTH2D("#chi^{2} Fit #eta' vs. q^{2} (particle selection)", "q^{2} [MeV]", "#chi^{2}",
                                        q2_bins, chi2_bins, "etap_chi2_vs_q2");
+    q2_vs_im_candidates = HistFac.makeTH2D("q^{2} vs. IM - Candidates", "IM [MeV]", "q^{2} [MeV]", im_bins, q2_bins,
+                                           "q2_vs_im_candidates");
     // pi0 background tests
     sub_pi0_cand_im = HistFac.makeTH1D("#pi^{0} Candidate Invariant Mass", "IM [MeV]", "#", q2_bins, "sub_pi0_cand_im");
-    sub_pi0_cand_chi2 = HistFac.makeTH1D("#pi^{0} Candidate #chi^{2}", "#chi^{2}", "#", chi2_bins, "sub_pi0_cand_chi2");
-    sub_pi0_cand_pdf = HistFac.makeTH1D("#pi^{0} Candidate Probability", "Probability", "#", pdf_bins, "sub_pi0_cand_pdf");
-    sub_pi0_cand_im_fit = HistFac.makeTH1D("#pi^{0} Candidate Invariant Mass after Fit", "IM [MeV]", "#", q2_bins,
-                                           "sub_pi0_cand_im_fit");
     sub_pi0_cand_im_cut = HistFac.makeTH1D("#pi^{0} Candidate Invariant Mass Cut", "IM [MeV]", "#", q2_bins,
                                            "sub_pi0_cand_im_cut");
+    q2_vs_im_pi0_cut = HistFac.makeTH2D("q^{2} vs. IM - Candidates", "IM [MeV]", "q^{2} [MeV]", im_bins, q2_bins,
+                                        "q2_vs_im_pi0_cut");
 
     // true MC checks
     const BinSettings true_energy_bins(1200, 0, energy_scale*1.2);
@@ -644,40 +636,13 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     APLCON::Fit_Settings_t etap_settings = etap_fit.GetSettings();
     etap_settings.MaxIterations = 10;
     etap_fit.SetSettings(etap_settings);
-
-    // pi0 fitter
-    pi0_fit.LinkVariable("Photon1", pi0_fs[0].Link(), pi0_fs[0].LinkSigma());
-    pi0_fit.LinkVariable("Photon2", pi0_fs[1].Link(), pi0_fs[1].LinkSigma());
-    vector<string> pi0_names = {"Photon1", "Photon2"};
-    // Constraint: Invariant mass of particles equals pi0 IM
-    auto pi0IM = [] (const vector<vector<double>>& particles) -> double
-    {
-        TLorentzVector pi0 = FitParticle::Make(particles[0], ParticleTypeDatabase::Photon.Mass());
-        pi0 += FitParticle::Make(particles[1], ParticleTypeDatabase::Photon.Mass());
-
-        return pi0.M() - ParticleTypeDatabase::Pi0.Mass();
-    };
-    pi0_fit.AddConstraint("pi0_IM", pi0_names, pi0IM);
-    // Constraint: coplanarity for the two particles in the rest-frame of the pi0
-    auto pi0CoplanarityCM = [] (const vector<vector<double>>& particles) -> double
-    {
-        TLorentzVector g1 = FitParticle::Make(particles[0], ParticleTypeDatabase::Photon.Mass());
-        TLorentzVector g2 = FitParticle::Make(particles[1], ParticleTypeDatabase::Photon.Mass());
-        TVector3 pi0_boost = (g1 + g2).BoostVector();
-        g1.Boost(-pi0_boost);
-        g2.Boost(-pi0_boost);
-        return g1.Angle(g2.Vect())*TMath::RadToDeg() - 180.;
-    };
-    pi0_fit.AddConstraint("pi0_CoplanarityConstraint_CM", pi0_names, pi0CoplanarityCM);
-    // settings
-    APLCON::Fit_Settings_t pi0_settings = pi0_fit.GetSettings();
-    pi0_settings.MaxIterations = 10;
-    pi0_fit.SetSettings(pi0_settings);
 }
 
 void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 {
     const TLorentzVector target(0., 0., 0., ParticleTypeDatabase::Proton.Mass());
+    TLorentzVector etap;
+    double q2;
 
     const bool MC = !(event.MCTrue().Particles().GetAll().empty());
     if (MC)
@@ -733,10 +698,10 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     if (MC)
         fill_MC_true(event.MCTrue().Particles().GetAll(), tracksCB.size(), tracksTAPS.size());
 
-//    if (tracksCB.size() + tracksTAPS.size() != nFinalState)
-//        return;
+    if (tracksCB.size() + tracksTAPS.size() != nFinalState)
+        return;
 
-//    accepted_events->Fill("#part FS", 1);
+    accepted_events->Fill("#part FS", 1);
 
     n_part->Fill(event.Reconstructed().Tracks().size());
     for (auto& particle : event.Reconstructed().Particles().GetAll()) {
@@ -750,12 +715,19 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     }
 
     particle_vector particles;
-//    if (!IdentifyTracks(tracksCB, tracksTAPS, particles))
-//        return;
-//    accepted_events->Fill("identification", 1);
+    if (!IdentifyTracks(tracksCB, tracksTAPS, particles))
+        return;
+    accepted_events->Fill("identification", 1);
+
+    sort_particles(particles);
+    etap = TLorentzVector(0., 0., 0., 0.);
+    for (auto it = particles.cbegin(); it != particles.cend()-1; ++it)
+        etap += *it;
+    q2 = (particles.at(0) + particles.at(1)).M();
+    q2_vs_im_candidates->Fill(etap.M(), q2);
 
     /* Achim's proposed test */
-    if (tracksCB.size() != 3)
+/*    if (tracksCB.size() != 3)
         return;
     accepted_events->Fill("#tracks CB", 1);
     size_t nCharged = 0;
@@ -797,46 +769,43 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     fit_etap += FitParticle::Make(etap_fs[0], ParticleTypeDatabase::eMinus.Mass());
     fit_etap += FitParticle::Make(etap_fs[1], ParticleTypeDatabase::eMinus.Mass());
     fit_etap += FitParticle::Make(etap_fs[2], ParticleTypeDatabase::Photon.Mass());
-    /* finished proton test, next test tagger hit combinations */
+*/    /* finished proton test, next test tagger hit combinations */
 
     /* test for pion background */
+    //interval<double> pion_cut(113., 158.5);  // 2sigma
+    interval<double> pion_cut(102., 170.);  // 3sigma
+    TLorentzVector pi0;
+    std::vector<FitParticle> pi0_cand(3);
     auto part_it = pi0_cand.begin();
-    sort_particles(particles);
     for (const auto& p : particles)
         if (p.Type() == ParticleTypeDatabase::eCharged || p.Type() == ParticleTypeDatabase::Photon)
             (part_it++)->SetFromVector(p);
-    const std::vector<std::array<size_t, 2>> pi0_comb = {{0, 1}, {0, 2}, {1, 2}};
-    //const std::vector<std::array<size_t, 2>> pi0_comb = {{0, 2}, {1, 2}};  // third position is the photon
-    double prob = 1.;
+    //const std::vector<std::array<size_t, 2>> pi0_comb = {{0, 1}, {0, 2}, {1, 2}};
+    const std::vector<std::array<size_t, 2>> pi0_comb = {{0, 2}, {1, 2}};  // third position is the photon
     for (const auto comb : pi0_comb) {
-        part_it = pi0_fs.begin();
+        pi0 = TLorentzVector(0., 0., 0., 0.);
         for (const auto idx : comb)
-            *part_it++ = pi0_cand.at(idx);
-        TLorentzVector pi0 = FitParticle::Make(pi0_fs[0], ParticleTypeDatabase::Photon.Mass());
-        pi0 += FitParticle::Make(pi0_fs[1], ParticleTypeDatabase::Photon.Mass());
+            pi0 += FitParticle::Make(pi0_cand.at(idx), ParticleTypeDatabase::Photon.Mass());
         sub_pi0_cand_im->Fill(pi0.M());
-        const APLCON::Result_t& pi0_res = pi0_fit.DoFit();
-        if (pi0_res.Status != APLCON::Result_Status_t::Success)
-            continue;
-        sub_pi0_cand_chi2->Fill(pi0_res.ChiSquare);
-        sub_pi0_cand_pdf->Fill(pi0_res.Probability);
-        if (pi0_res.Probability < prob)
-            prob = pi0_res.Probability;
-        pi0 = FitParticle::Make(pi0_fs[0], ParticleTypeDatabase::Photon.Mass());
-        pi0 += FitParticle::Make(pi0_fs[1], ParticleTypeDatabase::Photon.Mass());
-        sub_pi0_cand_im_fit->Fill(pi0.M());
     }
-    if (prob < .002)
-        return;
     for (const auto comb : pi0_comb) {
-        part_it = pi0_fs.begin();
+        pi0 = TLorentzVector(0., 0., 0., 0.);
         for (const auto idx : comb)
-            *part_it++ = pi0_cand.at(idx);
-        TLorentzVector pi0 = FitParticle::Make(pi0_fs[0], ParticleTypeDatabase::Photon.Mass());
-        pi0 += FitParticle::Make(pi0_fs[1], ParticleTypeDatabase::Photon.Mass());
+            pi0 += FitParticle::Make(pi0_cand.at(idx), ParticleTypeDatabase::Photon.Mass());
+        // apply an anti pion cut
+        if (pion_cut.Contains(pi0.M()))
+            return;
+    }
+    for (const auto comb : pi0_comb) {
+        pi0 = TLorentzVector(0., 0., 0., 0.);
+        for (const auto idx : comb)
+            pi0 += FitParticle::Make(pi0_cand.at(idx), ParticleTypeDatabase::Photon.Mass());
         sub_pi0_cand_im_cut->Fill(pi0.M());
     }
+    q2_vs_im_pi0_cut->Fill(etap.M(), q2);
     accepted_events->Fill("anti #pi^{0} cut", 1);
+
+    /* process tagger hits */
 
     TaggerHistList tagger_hits;
     size_t prompt_n_tagger = 0, random_n_tagger = 0;
@@ -848,11 +817,11 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         tagger_hits = event.Reconstructed().TaggerHits();
 
     size_t proton_count = 0;
-    vector<size_t> taps_cluster_as_proton_prompt;
+/*    vector<size_t> taps_cluster_as_proton_prompt;
     vector<size_t> taps_cluster_as_proton_random;
     taps_cluster_as_proton_prompt.resize(tracksTAPS.size());
     taps_cluster_as_proton_random.resize(tracksTAPS.size());
-    constexpr double proton_cone = 4.;
+    constexpr double proton_cone = 4.;*/
     for (const auto& taggerhit : tagger_hits) {
         tagger_spectrum->Fill(taggerhit->PhotonEnergy());
         tagger_time->Fill(taggerhit->Time());
@@ -876,7 +845,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 
         /* Achim's proposed test, continued */
         //double best_chi2 = 1000.;
-        Particle proton_candidate(ParticleTypeDatabase::Proton, 0., 0., 0.);
+/*        Particle proton_candidate(ParticleTypeDatabase::Proton, 0., 0., 0.);
         TLorentzVector expected_proton = taggerhit->PhotonBeam() + target - fit_etap;
         if (MC) {
             Particle true_proton = get_true_proton(event.MCTrue().Particles().GetAll());
@@ -904,7 +873,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
             continue;
         accepted_events->Fill("proton found", 1);
         particles.push_back(proton_candidate);
-        /* finished proton test */
+*/        /* finished proton test */
 
         // make sure the correct histogram will be filled
         HistList& h = is_prompt ? prompt : random;
@@ -969,10 +938,10 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         sort_particles(particles);
 
         TLorentzVector proton = particles.back();
-        TLorentzVector etap(0., 0., 0., 0.);
+        etap = TLorentzVector(0., 0., 0., 0.);
         for (auto it = particles.cbegin(); it != particles.cend()-1; ++it)
             etap += *it;
-        double q2 = (particles.at(0) + particles.at(1)).M();
+        q2 = (particles.at(0) + particles.at(1)).M();
         h["q2_im_base_selection"]->Fill(etap.M(), q2);
         TLorentzVector* photon_cm = static_cast<TLorentzVector*>(particles.at(2).Clone());
         photon_cm->Boost(-etap.BoostVector());
@@ -985,23 +954,6 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
             continue;
         h["q2_im_pid_cut"]->Fill(etap.M(), q2);
         accepted_events->Fill("PID Cut", 1);
-
-        // test for pion background
-        TLorentzVector lepton1 = particles.at(0);
-        TLorentzVector lepton2 = particles.at(1);
-        TLorentzVector photon = particles.at(2);
-        const double sub_im1 = (photon + lepton1).M();
-        const double sub_im2 = (photon + lepton2).M();
-        h["sub_im_lepton1"]->Fill(sub_im1);
-        h["sub_im_lepton2"]->Fill(sub_im2);
-        h["sub_im_lepton1_vs_lepton2"]->Fill(sub_im2, sub_im1);
-
-        // apply an anti pion cut
-        interval<double> pion_cut(120., 160.);
-        if (pion_cut.Contains(sub_im1) || pion_cut.Contains(sub_im2))
-            continue;
-        h["q2_im_pion_cut"]->Fill(etap.M(), q2);
-        accepted_events->Fill("#pi^{0} Cut", 1);
 
         h["tof_proton"]->Fill(taggerhit->Time() - particles.back().Tracks().front()->Time());
         //prompt["E_vs_tof"]->Fill(taggerhit->Time() - particles.back().Tracks().front()->Time(),
@@ -1189,7 +1141,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     prompt["n_tagged"]->Fill(prompt_n_tagger);
     random["n_tagged"]->Fill(random_n_tagger);
     protons_found->Fill(proton_count);
-    const size_t protons_found_prompt = sum_vector(taps_cluster_as_proton_prompt);
+/*    const size_t protons_found_prompt = sum_vector(taps_cluster_as_proton_prompt);
     const size_t protons_found_random = sum_vector(taps_cluster_as_proton_random);
     prompt["protons_found"]->Fill(protons_found_prompt);
     random["protons_found"]->Fill(protons_found_random);
@@ -1199,6 +1151,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     const size_t diff_clusters_random = non_zero_entries(taps_cluster_as_proton_random);
     prompt["protons_diff_clusters"]->Fill(diff_clusters_prompt);
     random["protons_diff_clusters"]->Fill(diff_clusters_random);
+    prompt["proton_diff_clusters_vs_q2"]->Fill(q2_true, diff_clusters_prompt);
+    random["proton_diff_clusters_vs_q2"]->Fill(q2_true, diff_clusters_random);*/
 }
 
 void ant::analysis::SaschaPhysics::Finish()
