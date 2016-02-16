@@ -376,6 +376,8 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     prompt_window(-6, 6),
     random_window1(-40, -15),
     random_window2(15, 40),
+    cb_time_window(-20, 20),
+    taps_time_window(-20, 20),//(-10, 10), //TODO: for now bigger (TOF), check what is best
     fitter("SaschaPhysics"),
     final_state(nFinalState),
     etap_fit("eta' fitter"),
@@ -421,6 +423,7 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     const BinSettings particle_bins(10);
     const BinSettings chi2_bins(150, 0, 50);
     const BinSettings q2_bins(2000, 0, 1000);
+    const BinSettings time_bins(1000, -50, 50);
     const BinSettings im_bins(200, IM-100, IM+100);
     cb_esum = HistFac.makeTH1D("CB Energy Sum", "E [MeV]", "#", energy_bins, "cb_esum");
     pid = HistFac.makeTH2D("PID Bananas", "Cluster Energy [MeV]", "Veto Energy [MeV]", energy_bins, veto_bins, "pid");
@@ -430,6 +433,16 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     n_part = HistFac.makeTH1D("Number of particles", "#particles", "#", particle_bins, "n_part");
     n_cluster_cb = HistFac.makeTH1D("Number of Clusters in CB", "#particles", "#", particle_bins, "n_cluster_cb");
     n_cluster_taps = HistFac.makeTH1D("Number of Clusters in TAPS", "#particles", "#", particle_bins, "n_cluster_taps");
+    cluster_time = HistFac.makeTH1D("Cluster Time", "time [ns]", "#", time_tagger, "cluster_time");
+    cb_time = HistFac.makeTH1D("CB Time", "time [ns]", "#", time_tagger, "cb_time");
+    taps_time = HistFac.makeTH1D("TAPS Time", "time [ns]", "#", time_tagger, "taps_time");
+    cb_time_avg = HistFac.makeTH1D("Energy weighted CB time average", "avg time [ns]", "#", time_bins, "cb_time_avg");
+    cb_avg_tagger_time_diff = HistFac.makeTH1D("Time difference CB average and Tagger", "time [ns]", "#", time_tagger,
+                                               "cb_avg_tagger_time_diff;");
+    cb_avg_taps_time_diff = HistFac.makeTH1D("Time difference CB average and TAPS elemets", "time [ns]", "#", time_bins,
+                                             "cb_avg_taps_time_diff");
+    energy_vs_cb_avg_taps_time_diff = HistFac.makeTH2D("Energy vs. Time difference CB average and TAPS elemets", "time [ns]",
+                                                       "E [MeV]", time_bins, energy_bins, "energy_vs_cb_avg_taps_time_diff");
     etap_chi2 = HistFac.makeTH1D("#chi^{2} Fit #eta' (particle selection)", "#chi^{2}", "#", chi2_bins, "etap_chi2");
     etap_chi2_vs_q2 = HistFac.makeTH2D("#chi^{2} Fit #eta' vs. q^{2} (particle selection)", "q^{2} [MeV]", "#chi^{2}",
                                        q2_bins, chi2_bins, "etap_chi2_vs_q2");
@@ -677,6 +690,12 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 
     for (const auto& track : event.Reconstructed().Tracks()) {
         pid->Fill(track->ClusterEnergy(), track->VetoEnergy());
+        // fill time information
+        cluster_time->Fill(track->Time());
+        if (track->Detector() & detector_t::anyCB)
+            cb_time->Fill(track->Time());
+        else
+            taps_time->Fill(track->Time());
     }
 
     // determine #clusters per event per detector
@@ -686,13 +705,20 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     prompt["n_cluster_cb"]->Fill(nCB);
     prompt["n_cluster_taps"]->Fill(nTAPS);*/
 
-    // get the tracks in CB and TAPS
+    // get the tracks in CB and TAPS, time cuts on clusters are applied
     TrackList tracksCB;
     TrackList tracksTAPS;
     GetTracks(event, tracksCB, tracksTAPS);
     //printf("Particles found: %zu CB, %zu TAPS\n", tracksCB.size(), tracksTAPS.size());
     n_cluster_cb->Fill(tracksCB.size());
     n_cluster_taps->Fill(tracksTAPS.size());
+
+    const double cb_time_avg_energy_weighted = calculate_energy_weighted_cb_time_average(tracksCB);
+    cb_time_avg->Fill(cb_time_avg_energy_weighted);
+    for (const auto& track: tracksTAPS) {
+        cb_avg_taps_time_diff->Fill(cb_time_avg_energy_weighted - track->Time());
+        energy_vs_cb_avg_taps_time_diff->Fill(cb_time_avg_energy_weighted - track->Time(), track->ClusterEnergy());
+    }
 
     // fill true MC information
     if (MC)
@@ -825,6 +851,9 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     for (const auto& taggerhit : tagger_hits) {
         tagger_spectrum->Fill(taggerhit->PhotonEnergy());
         tagger_time->Fill(taggerhit->Time());
+
+        const double cb_avg_tagger_time = taggerhit->Time() - cb_time_avg_energy_weighted;
+        cb_avg_tagger_time_diff->Fill(cb_avg_tagger_time);
 
         // determine if the event is in the prompt or random window
         bool is_prompt = false;
@@ -1343,15 +1372,25 @@ void ant::analysis::SaschaPhysics::proton_tests(const TrackList& tracks, const T
     }
 }
 
+double ant::analysis::SaschaPhysics::calculate_energy_weighted_cb_time_average(const TrackList& tracks) const
+{
+    double time = 0, e_sum = 0;
+    for (const auto& track : tracks) {
+        time += track->Time();
+        e_sum += track->ClusterEnergy();
+    }
+    return time/e_sum;
+}
+
 void ant::analysis::SaschaPhysics::GetTracks(const Event& event, TrackList& tracksCB, TrackList& tracksTAPS)
 {
     for (const auto& track : event.Reconstructed().Tracks()) {
         // ignore particles below set cluster energy threshold
         if (track->ClusterEnergy() < CLUSTER_TRESH)
             continue;
-        if (track->Detector() & detector_t::anyCB)
+        if (track->Detector() & detector_t::anyCB && cb_time_window.Contains(track->Time()))
             tracksCB.push_back(track);
-        else if (track->Detector() & detector_t::anyTAPS)
+        else if (track->Detector() & detector_t::anyTAPS && taps_time_window.Contains(track->Time()))
             tracksTAPS.push_back(track);
     }
 }

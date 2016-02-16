@@ -207,6 +207,9 @@ protected:
     interval<double> random_window1;
     interval<double> random_window2;
 
+    interval<double> cb_time_window;
+    interval<double> taps_time_window;
+
     typedef std::vector<ant::Particle> particle_vector;
 
     const map<short, string> component = {{0, "Energy"}, {1, "Theta"}, {2, "Phi"}};
@@ -244,6 +247,13 @@ protected:
     TH1D* n_part;
     TH1D* n_cluster_cb;
     TH1D* n_cluster_taps;
+    TH1D* cluster_time;
+    TH1D* cb_time;
+    TH1D* taps_time;
+    TH1D* cb_time_avg;
+    TH1D* cb_avg_tagger_time_diff;
+    TH1D* cb_avg_taps_time_diff;
+    TH2D* energy_vs_cb_avg_taps_time_diff;
     TH1D* etap_chi2;
     TH2D* etap_chi2_vs_q2;
     TH2D* q2_vs_im_candidates;
@@ -321,6 +331,7 @@ protected:
     void GetParticles(const ant::Event& event, particle_vector& particles);
     void GetTrueParticles(const ant::Event& event, particle_vector& particles);
 
+    double calculate_energy_weighted_cb_time_average(const TrackList&) const;
     void sort_particles(particle_vector&);
     void fill_MC_true(const ParticleList&, const size_t, const size_t);
     const particle_vector get_MC_true_particles(const ParticleList&);
