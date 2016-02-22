@@ -215,7 +215,7 @@ protected:
     // please also provide GoAT trees with matching MC true information...
     static constexpr bool includeCoplanarityConstraint = false;
     static constexpr bool includeIMconstraint = false;
-    static constexpr bool includeVertexFit = false;
+    static constexpr bool includeVertexFit = true;
     static constexpr size_t nFinalState = 3;
     //const double IM = ParticleTypeDatabase::EtaPrime.Mass();
     static constexpr double IM = 957.78;
@@ -227,8 +227,11 @@ protected:
     static constexpr double TAPS_DISTANCE = 145;
     // radius CB [cm]
     static constexpr double RADIUS_CB = 25.4;
+    // limits for target if z vertex is used in KinFit
+    static constexpr double TARGET_MIN = -10.;
+    static constexpr double TARGET_MAX = 10.;
     // threshold to check if double value should be treated as zero
-    static constexpr double EPSILON = 1e-10;
+    static constexpr double EPSILON = 2*std::numeric_limits<double>::epsilon();
 
     size_t nParticles, nParticlesCB, nParticlesTAPS;
 

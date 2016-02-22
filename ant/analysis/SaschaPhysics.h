@@ -226,8 +226,15 @@ protected:
     static constexpr double CLUSTER_TRESH = 25.;
     // threshold for CB energy sum
     static constexpr double CB_ESUM = 500.;
+    // distance to TAPS [cm]
+    static constexpr double TAPS_DISTANCE = 145;
+    // radius CB [cm]
+    static constexpr double RADIUS_CB = 25.4;
+    // limits for target if z vertex is used in KinFit
+    static constexpr double TARGET_MIN = -10.;
+    static constexpr double TARGET_MAX = 10.;
     // threshold to check if double value should be treated as zero
-    static constexpr double EPSILON = 1e-10;
+    static constexpr double EPSILON = 2*std::numeric_limits<double>::epsilon();
 
     size_t nParticles, nParticlesCB, nParticlesTAPS;
 
@@ -348,6 +355,7 @@ protected:
     APLCON fitter;
     FitParticle beam;
     std::vector<FitParticle> final_state;
+    std::vector<ant::detector_t> detectors;
     FitParticle proton;
     // eta' fitter
     APLCON etap_fit;

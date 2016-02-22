@@ -297,7 +297,7 @@ ant::analysis::etap_2g::etap_2g(const mev_t energy_scale) :
     random_window2(15, 40),
     fitter("etap_2g"),
     final_state(nFinalState),
-    detectors(nFinalState)
+    detectors(nFinalState + 1)  // beam photon needs to be considered
 {
     cout << "Eta' 2gamma Physics:\n";
     cout << "Prompt window: " << prompt_window << " ns\n";
@@ -375,29 +375,104 @@ ant::analysis::etap_2g::etap_2g(const mev_t energy_scale) :
     fitter.LinkVariable("Proton", final_state[2].Link(), final_state[2].LinkSigma());
 
     vector<string> all_names = {"Beam", "Photon1", "Photon2", "Proton"};
+    if (includeVertexFit)
+        all_names.push_back("v_z");
+
+    auto recalculate_cluster = [this] (const vector<vector<double>>& particles, size_t id, const double v_z) -> vector<double>
+    {
+        constexpr double ln2 = 0.693;
+        // nuclear properties from http://pdg.lbl.gov/2015/AtomicNuclearProperties/
+        // general calorimetry infos: http://www.kip.uni-heidelberg.de/~coulon/Lectures/Detectors/Free_PDFs/Lecture9.pdf
+        // radiation lengths
+        constexpr double X0_NaI = 2.588;
+        constexpr double X0_BaF2 = 2.026;
+        constexpr double X0_PbWO4 = 0.89;
+        // critical energies
+        constexpr double Ec_NaI = 13.3;
+        constexpr double Ec_BaF2 = 13.7;
+        constexpr double Ec_PbWO4 = 9.6;
+
+        // get correct constants for the material
+        double X0, Ec;
+        if (detectors.at(id) & ant::detector_t::NaI) {
+            X0 = X0_NaI;
+            Ec = Ec_NaI;
+        } else if (detectors.at(id) & ant::detector_t::BaF2) {
+            X0 = X0_BaF2;
+            Ec = Ec_BaF2;
+        } else if (detectors.at(id) & ant::detector_t::PbWO4) {
+            X0 = X0_PbWO4;
+            Ec = Ec_PbWO4;
+        } else  // no known material
+            return particles[id];
+
+        // shower depth ~ ln(E/E_c)
+        const double L = log(particles[id][0]/Ec);
+        // E = E_0 exp(-x/X_0)
+        const double r = X0*L/ln2;  // shower depth maximum
+        const double theta = particles[id][1];
+        const double R = detectors.at(id) & ant::detector_t::anyCB ? RADIUS_CB + r : TAPS_DISTANCE/cos(theta) + r;
+        const double theta_new = atan2(R*sin(theta), R*cos(theta) - v_z);
+        // return new particle values
+        vector<double> part = particles[id];
+        part[1] = theta_new;
+        return part;
+    };
 
     // Constraint: Incoming 4-vector = Outgoing 4-vector
-    auto EnergyMomentumBalance = [] (const vector<vector<double>>& particles) -> vector<double>
+    auto EnergyMomentumBalance = [recalculate_cluster] (vector<vector<double>>& particles) -> vector<double>
     {
         const TLorentzVector target(0,0,0, ParticleTypeDatabase::Proton.Mass());
-        // assume first particle is beam photon
-        TLorentzVector diff = target + FitParticle::Make(particles[0], ParticleTypeDatabase::Photon.Mass());
-        // assume second and third particle outgoing photons
-        diff -= FitParticle::Make(particles[1], ParticleTypeDatabase::Photon.Mass());
-        diff -= FitParticle::Make(particles[2], ParticleTypeDatabase::Photon.Mass());
-        // assume last particle outgoing proton
-        diff -= FitParticle::Make(particles[3], ParticleTypeDatabase::Proton.Mass());
+        TLorentzVector diff(0,0,0,0);
+        if (includeVertexFit) {
+            // last element in particles is vz (scalar has dimension 1)
+            // see AddConstraint below
+            const double v_z = particles.back()[0];
+            particles.resize(particles.size()-1); // get rid of last element
+            // assume first particle is beam photon
+            diff = target + FitParticle::Make(particles[0], ParticleTypeDatabase::Photon.Mass());
+            /* from here all clusters are recalculated by taking a shifted z vertex position into account */
+            // assume second and third particle outgoing photons
+            diff -= FitParticle::Make(recalculate_cluster(particles, 1, v_z), ParticleTypeDatabase::Photon.Mass());
+            diff -= FitParticle::Make(recalculate_cluster(particles, 2, v_z), ParticleTypeDatabase::Photon.Mass());
+            // assume last particle outgoing proton
+            diff -= FitParticle::Make(recalculate_cluster(particles, 3, v_z), ParticleTypeDatabase::Proton.Mass());
+        } else {
+            // assume first particle is beam photon
+            TLorentzVector diff = target + FitParticle::Make(particles[0], ParticleTypeDatabase::Photon.Mass());
+            // assume second and third particle outgoing photons
+            diff -= FitParticle::Make(particles[1], ParticleTypeDatabase::Photon.Mass());
+            diff -= FitParticle::Make(particles[2], ParticleTypeDatabase::Photon.Mass());
+            // assume last particle outgoing proton
+            diff -= FitParticle::Make(particles[3], ParticleTypeDatabase::Proton.Mass());
+        }
 
         return {diff.X(), diff.Y(), diff.Z(), diff.T()};
     };
+    if (includeVertexFit) {
+        //fitter.AddUnmeasuredVariable("v_z"); // default value 0
+        auto v_z_settings = APLCON::Variable_Settings_t::Default;
+        v_z_settings.Limit.High = TARGET_MAX;
+        v_z_settings.Limit.Low = TARGET_MIN;
+        fitter.AddMeasuredVariable("v_z", 0., 2.3, v_z_settings);  // default value 0
+    }
     fitter.AddConstraint("EnergyMomentumBalance", all_names, EnergyMomentumBalance);
 
     // Constraint: Coplanarity between eta' and recoil proton
-    auto CoplanarityConstraint = [] (const vector<vector<double>>& particles) -> double
+    auto CoplanarityConstraint = [recalculate_cluster] (const vector<vector<double>>& particles) -> double
     {
-        TLorentzVector etap = FitParticle::Make(particles[1], ParticleTypeDatabase::Photon.Mass());
-        etap += FitParticle::Make(particles[2], ParticleTypeDatabase::Photon.Mass());
-        TLorentzVector proton = FitParticle::Make(particles[3], ParticleTypeDatabase::Proton.Mass());
+        TLorentzVector etap(0,0,0,0);
+        TLorentzVector proton;
+        if (includeVertexFit) {
+            const double v_z = particles.back()[0];
+            etap = FitParticle::Make(recalculate_cluster(particles, 1, v_z), ParticleTypeDatabase::Photon.Mass());
+            etap += FitParticle::Make(recalculate_cluster(particles, 2, v_z), ParticleTypeDatabase::Photon.Mass());
+            proton = FitParticle::Make(recalculate_cluster(particles, 3, v_z), ParticleTypeDatabase::Proton.Mass());
+        } else {
+            etap = FitParticle::Make(particles[1], ParticleTypeDatabase::Photon.Mass());
+            etap += FitParticle::Make(particles[2], ParticleTypeDatabase::Photon.Mass());
+            proton = FitParticle::Make(particles[3], ParticleTypeDatabase::Proton.Mass());
+        }
         return abs(etap.Phi() - proton.Phi())*TMath::RadToDeg() - 180.;
     };
     if (includeCoplanarityConstraint)
@@ -408,8 +483,14 @@ ant::analysis::etap_2g::etap_2g(const mev_t energy_scale) :
     auto RequireIM = [&] (const vector<vector<double>>& particles) -> double
     {
         TLorentzVector sum(0,0,0,0);
-        sum += FitParticle::Make(particles[1], ParticleTypeDatabase::Photon.Mass());
-        sum += FitParticle::Make(particles[2], ParticleTypeDatabase::Photon.Mass());
+        if (includeVertexFit) {
+            const double v_z = particles.back()[0];
+            sum += FitParticle::Make(recalculate_cluster(particles, 1, v_z), ParticleTypeDatabase::Photon.Mass());
+            sum += FitParticle::Make(recalculate_cluster(particles, 2, v_z), ParticleTypeDatabase::Photon.Mass());
+        } else {
+            sum += FitParticle::Make(particles[1], ParticleTypeDatabase::Photon.Mass());
+            sum += FitParticle::Make(particles[2], ParticleTypeDatabase::Photon.Mass());
+        }
 
         return sum.M() - IM;
     };
@@ -422,7 +503,7 @@ ant::analysis::etap_2g::etap_2g(const mev_t energy_scale) :
     // tan(theta') = (R sin(theta))/(R cos(theta) - v_z)
     // R is the CB radius, 10in aka 25.4cm
 
-    auto VertexConstraint = [&] (vector<vector<double>>& particles) -> double
+/*    auto VertexConstraint = [&] (vector<vector<double>>& particles) -> double
     {
         constexpr double R = 25.4;
         // last element in particles is vz (scalar has dimension 1)
@@ -447,7 +528,7 @@ ant::analysis::etap_2g::etap_2g(const mev_t energy_scale) :
     }
 
     static_assert(!(includeIMconstraint && includeVertexFit), "Do not enable Vertex and IM Fit at the same time");
-
+*/
     // create pull histograms
     const BinSettings pull_bins(50,-3,3);
     // change back to former directory to store pulls
@@ -644,6 +725,7 @@ void ant::analysis::etap_2g::ProcessEvent(const ant::Event &event)
 //                       [](Particle& p) -> double { return FitParticle().SetFromVector(p); });
         auto fs_it = final_state.begin();
         auto det_it = detectors.begin();
+        det_it++;  // skip first element which is the beam photon --> not considered when recalculating clusters due to v_z
         for (const auto& p : particles) {
             //(it++)->SetFromVector(p);
             set_fit_particle(p, *fs_it++);
