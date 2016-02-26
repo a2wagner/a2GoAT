@@ -242,7 +242,8 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     const BinSettings chisquare_bins(100, 0, 30);
     const BinSettings probability_bins(100, 0, 1);
     const BinSettings iterations_bins(15, 0, 15);
-    const BinSettings im_bins(200, IM-100, IM+100);
+    //const BinSettings im_bins(200, IM-100, IM+100);
+    const BinSettings im_bins(1200, 0, 1200);
     const BinSettings vertex_bins(200, -10, 10);
     const BinSettings theta_bins(720, 0, 180);
     const BinSettings phi_bins(720, 0, 360);
@@ -441,7 +442,8 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     const BinSettings chi2_bins(150, 0, 50);
     const BinSettings q2_bins(2000, 0, 1000);
     const BinSettings time_bins(1000, -50, 50);
-    const BinSettings im_bins(200, IM-100, IM+100);
+    //const BinSettings im_bins(200, IM-100, IM+100);
+    const BinSettings im_bins(1200, 0, 1200);
     cb_esum = HistFac.makeTH1D("CB Energy Sum", "E [MeV]", "#", energy_bins, "cb_esum");
     pid = HistFac.makeTH2D("PID Bananas", "Cluster Energy [MeV]", "Veto Energy [MeV]", energy_bins, veto_bins, "pid");
     tagger_spectrum = HistFac.makeTH1D("Tagger Spectrum", "Photon Beam Energy [MeV]", "#", energy_tagger, "tagger_spectrum");
