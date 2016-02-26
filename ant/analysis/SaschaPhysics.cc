@@ -541,7 +541,7 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
         auto v_z_settings = APLCON::Variable_Settings_t::Default;
         v_z_settings.Limit.High = TARGET_MAX;
         v_z_settings.Limit.Low = TARGET_MIN;
-        fitter.AddMeasuredVariable("v_z", 4., 2.3, v_z_settings);  // default value 0
+        fitter.AddMeasuredVariable("v_z", 0., 2.3, v_z_settings);  // default value 0
     }
 
     auto recalculate_cluster = [this] (const vector<vector<double>>& particles, size_t id) -> vector<double>
@@ -1043,14 +1043,10 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 
         accepted_events->Fill("#part", 1);
 
-        // check theta distribution in dependence of the number of clusters
-        //TODO: check if the following is needed anymore
+        // check theta and energy distribution in dependence of the number of clusters
         TrackPtr tr;
-        bool highVeto = false;
         for (const auto& p : particles) {
             tr = p.Tracks().front();
-            if (tr->VetoEnergy() > 3.)
-                highVeto = true;
             h["theta_vs_clusters"]->Fill(nParticles, p.Theta()*TMath::RadToDeg());
             h["crystals_vs_ecl_charged_candidates"]->Fill(tr->ClusterEnergy(), tr->ClusterSize());
             h["dEvE"]->Fill(tr->ClusterEnergy(), tr->VetoEnergy());
@@ -1163,17 +1159,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 
         h["q2_im_miss_mass"]->Fill(etap.M(), q2);
         h["q2_im_before_fit"]->Fill(etap.M(), q2);
-/*        // Cut on missing mass of the proton
-        if (missM < 900. && missM > 990.)
-            continue;
-        // Cut on Veto energy
-        if (highVeto)
-            continue;
-        // Cut on opening angle between TAPS cluster and expected proton
-        // (mainly for suppressing bad events which will be unnecassarily fitted, affects only a few background events)
-        if (openAngle_p_TAPS_expected > 5.)
-            continue;
-*/
+
         // let APLCON do the work
         const APLCON::Result_t& result = fitter.DoFit();
 

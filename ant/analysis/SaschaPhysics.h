@@ -222,7 +222,7 @@ protected:
     // please also provide GoAT trees with matching MC true information...
     static constexpr bool includeCoplanarityConstraint = true;
     static constexpr bool includeIMconstraint = false;
-    static constexpr bool includeVertexFit = true;
+    static constexpr bool includeVertexFit = false;
     static constexpr size_t nFinalState = 4;
     //const double IM = ParticleTypeDatabase::EtaPrime.Mass();
     static constexpr double IM = 957.78;
