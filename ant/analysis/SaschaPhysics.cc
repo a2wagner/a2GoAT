@@ -325,7 +325,9 @@ analysis::SaschaPhysics::HistList::HistList(const string &prefix, const mev_t en
     AddHistogram("protons_found", "#Protons in predicted cone", "#protons", "#", BinSettings(5));
     AddHistogram("nTAPS_vs_protons_found", "#clusters in TAPS vs. #protons in predicted cone", "#protons", "#clusters TAPS",
                  BinSettings(5), BinSettings(5));
-    AddHistogram("protons_diff_clusters", "#different TAPS clusters identified as proton", "#clusters", "#",BinSettings(5));
+    AddHistogram("protons_diff_clusters", "#different TAPS clusters identified as proton", "#clusters", "#", BinSettings(5));
+    AddHistogram("proton_diff_clusters_vs_q2", "#different TAPS clusters identified as proton vs. true q^{2}",
+                 "q [MeV]", "#clusters", q2_bins, BinSettings(5));
 
     AddHistogram("coplanarity", "Coplanarity #eta' proton", "Coplanarity [#circ]", "#", phi_bins);
     AddHistogram("missing_mass", "Missing Mass Proton", "m_{miss} [MeV]", "#", energy_bins);
@@ -402,6 +404,10 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     etap_fs(3)
 {
     cout << "Eta' Dalitz Physics:\n";
+    static_assert(USE_OLD_METHOD || USE_KINFIT_PREDICTION || USE_RELATIVE_TAPS_TIME || USE_KINFIT_SELECTION,
+                  "One particle selection method needs to be chosen!");
+    static_assert((USE_OLD_METHOD + USE_KINFIT_PREDICTION + USE_RELATIVE_TAPS_TIME + USE_KINFIT_SELECTION) == 1,
+                  "Only use one particle selection method at a time!");
     cout << "Prompt window: " << prompt_window << " ns\n";
     cout << "Random window 1: " << random_window1 << " ns\n";
     cout << "Random window 2: " << random_window2 << " ns\n";
@@ -467,6 +473,8 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
                                        q2_bins, chi2_bins, "etap_chi2_vs_q2");
     q2_vs_im_candidates = HistFac.makeTH2D("q^{2} vs. IM - Candidates", "IM [MeV]", "q^{2} [MeV]", im_bins, q2_bins,
                                            "q2_vs_im_candidates");
+    q2_vs_im_etap_candidates = HistFac.makeTH2D("q^{2} vs. IM - #eta' Candidates Proton Prediction", "IM [MeV]", "q^{2} [MeV]",
+                                                im_bins, q2_bins, "q2_vs_im_etap_candidates");
     // pi0 background tests
     sub_pi0_cand_im = HistFac.makeTH1D("#pi^{0} Candidate Invariant Mass", "IM [MeV]", "#", q2_bins, "sub_pi0_cand_im");
     sub_pi0_cand_im_cut = HistFac.makeTH1D("#pi^{0} Candidate Invariant Mass Cut", "IM [MeV]", "#", q2_bins,
@@ -515,6 +523,13 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     expected_proton_diff_vs_q2_rebin = HistFac.makeTH2D("Expected Proton Difference vs. q^{2}", "q^{2} [MeV]", "Angle [#circ]",
                                                         BinSettings(20, 0, 1000), BinSettings(100, 0, 25),
                                                         "expected_proton_diff_vs_q2_rebin");
+    expected_proton_diff_phi_vs_theta = HistFac.makeTH2D("Expected Proton Difference #varphi vs. #vartheta",
+                                                         "#vartheta [#circ]", "#varphi [#circ]", theta_bins, theta_bins,
+                                                         "expected_proton_diff_phi_vs_theta");
+    expected_proton_energy_predicted_vs_true = HistFac.makeTH2D("Expected Proton Energies predicted vs. true",
+                                                                "predicted energy [MeV]", "true energy [MeV]",
+                                                                true_energy_bins, true_energy_bins,
+                                                                "expected_proton_energy_predicted_vs_true");
     protons_found = HistFac.makeTH1D("#Protons in predicted cone", "protons", "#", BinSettings(5), "protons_found");
 
 
@@ -839,62 +854,40 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         } catch (...) {}
     }
 
-    particle_vector particles;
-    if (!IdentifyTracks(tracksCB, tracksTAPS, particles))
-        return;
-    accepted_events->Fill("identification", 1);
+    /* prepare tagger hits */
+    TaggerHistList tagger_hits;
+    size_t prompt_n_tagger = 0, random_n_tagger = 0;
+    //static size_t count = 0;
+    constexpr bool trueMC = true;  // use MC true
+    if (trueMC && MC)
+        tagger_hits = event.MCTrue().TaggerHits();
+    else
+        tagger_hits = event.Reconstructed().TaggerHits();
 
-    sort_particles(particles);
+    particle_vector particles;
+    bool result;  // result of particle collection
+    if (USE_OLD_METHOD)
+        result = collect_particles_old_method(event, particles);
+    else if (USE_KINFIT_PREDICTION)
+        result = collect_particles_kinfit_prediction(tracksCB, tracksTAPS, event, tagger_hits, particles, q2_true);
+    else if (USE_RELATIVE_TAPS_TIME)
+        result = collect_particles_relative_taps_time(tracksCB, tracksTAPS, particles);
+    else if (USE_KINFIT_SELECTION)
+        result = collect_particles_kinfit_selection(event, particles);
+    else {
+        cerr << "ERROR: not specified how the particles should be collected!" << endl;
+        exit(1);
+    }
+
+    // successfully collected particles?
+    if (!result)
+        return;
+
     etap = TLorentzVector(0., 0., 0., 0.);
     for (auto it = particles.cbegin(); it != particles.cend()-1; ++it)
         etap += *it;
     q2 = (particles.at(0) + particles.at(1)).M();
     q2_vs_im_candidates->Fill(etap.M(), q2);
-
-    /* Achim's proposed test */
-/*    if (tracksCB.size() != 3)
-        return;
-    accepted_events->Fill("#tracks CB", 1);
-    size_t nCharged = 0;
-    for (const auto& track : tracksCB) {
-        if (track->Detector() & detector_t::PID) {
-            particles.push_back(Particle(ParticleTypeDatabase::eMinus, track));
-            nCharged++;
-        } else
-            particles.push_back(Particle(ParticleTypeDatabase::Photon, track));
-    }
-    if (nCharged != 2)
-        return;
-    accepted_events->Fill("2 leptons", 1);
-    // swap the photon at the third (last) position
-    for (auto it = particles.begin(); it != particles.end()-1; ++it)
-        if (it->Type() == ParticleTypeDatabase::Photon) {
-            std::iter_swap(it, particles.end()-1);
-            break;
-        }
-    TLorentzVector tmp_etap(0., 0., 0., 0.);
-    for (auto it = particles.cbegin(); it != particles.cend(); ++it)
-        tmp_etap += *it;
-
-    auto etap_it = etap_fs.begin();
-    for (const auto& p : particles)
-        (etap_it++)->SetFromVector(p);
-
-    const APLCON::Result_t& etap_res = etap_fit.DoFit();
-    if (etap_res.Status != APLCON::Result_Status_t::Success)
-        return;
-    accepted_events->Fill("fit #eta'", 1);
-    // Cut on chi^2
-    etap_chi2->Fill(etap_res.ChiSquare);
-    etap_chi2_vs_q2->Fill(q2_true, etap_res.ChiSquare);
-    if (etap_res.ChiSquare > 15.)
-        return;
-    accepted_events->Fill("#chi^{2} #eta'", 1);
-    TLorentzVector fit_etap(0., 0., 0., 0.);
-    fit_etap += FitParticle::Make(etap_fs[0], ParticleTypeDatabase::eMinus.Mass());
-    fit_etap += FitParticle::Make(etap_fs[1], ParticleTypeDatabase::eMinus.Mass());
-    fit_etap += FitParticle::Make(etap_fs[2], ParticleTypeDatabase::Photon.Mass());
-*/    /* finished proton test, next test tagger hit combinations */
 
     /* test for pion background */
     //interval<double> pion_cut(113., 158.5);  // 2sigma
@@ -931,22 +924,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     accepted_events->Fill("anti #pi^{0} cut", 1);
 
     /* process tagger hits */
+    // main analysis procedure
 
-    TaggerHistList tagger_hits;
-    size_t prompt_n_tagger = 0, random_n_tagger = 0;
-    //static size_t count = 0;
-    constexpr bool trueMC = true;  // use MC true
-    if (trueMC && MC)
-        tagger_hits = event.MCTrue().TaggerHits();
-    else
-        tagger_hits = event.Reconstructed().TaggerHits();
-
-    size_t proton_count = 0;
-/*    vector<size_t> taps_cluster_as_proton_prompt;
-    vector<size_t> taps_cluster_as_proton_random;
-    taps_cluster_as_proton_prompt.resize(tracksTAPS.size());
-    taps_cluster_as_proton_random.resize(tracksTAPS.size());
-    constexpr double proton_cone = 4.;*/
     for (const auto& taggerhit : tagger_hits) {
         tagger_spectrum->Fill(taggerhit->PhotonEnergy());
         tagger_time->Fill(taggerhit->Time());
@@ -971,64 +950,10 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         if (is_prompt)
             proton_tests(event.Reconstructed().Tracks(), taggerhit);
 
-        /* Achim's proposed test, continued */
-        //double best_chi2 = 1000.;
-/*        Particle proton_candidate(ParticleTypeDatabase::Proton, 0., 0., 0.);
-        TLorentzVector expected_proton = taggerhit->PhotonBeam() + target - fit_etap;
-        if (MC) {
-            Particle true_proton = get_true_proton(event.MCTrue().Particles().GetAll());
-            expected_proton_diff_vs_q2->Fill(q2_true, expected_proton.Angle(true_proton.Vect())*TMath::RadToDeg());
-            expected_proton_diff_vs_q2_rebin->Fill(q2_true, expected_proton.Angle(true_proton.Vect())*TMath::RadToDeg());
-        }
-        bool proton_found = false;
-        size_t i = 0;
-        for (const auto& track : tracksTAPS) {
-            proton_candidate = Particle(ParticleTypeDatabase::Proton, track);
-            if (expected_proton.Angle(proton_candidate.Vect())*TMath::RadToDeg() < proton_cone) {
-                if (proton_found)
-                    accepted_events->Fill("2nd proton", 1);
-                proton_found = true;
-                //break;
-                proton_count++;
-                if (is_prompt)
-                    taps_cluster_as_proton_prompt[i]++;
-                else
-                    taps_cluster_as_proton_random[i]++;
-            }
-            i++;
-        }
-        if (!proton_found)
-            continue;
-        accepted_events->Fill("proton found", 1);
-        particles.push_back(proton_candidate);
-*/        /* finished proton test */
-
         // make sure the correct histogram will be filled
         HistList& h = is_prompt ? prompt : random;
 
         h["tagger_energy"]->Fill(taggerhit->PhotonEnergy());
-
-//        // find the photons and one proton
-//        size_t foundPhotons = 0;
-//        for(const auto& p : event.MCTrue().Particles().GetAll()) {
-//            if(p->Type() == ParticleTypeDatabase::Proton) {
-//                proton.SetFromVector(*p);
-//            }
-//            else if(foundPhotons<nPhotons && p->Type() == ParticleTypeDatabase::Photon) {
-//                photons[foundPhotons].SetFromVector(*p);
-//                foundPhotons++;
-//           }
-//        }
-//        if(foundPhotons != nPhotons)
-//            continue;
-
-        nParticles = nParticlesCB = nParticlesTAPS = 0;
-        //particle_vector particles;
-        /*GetParticles(event, particles);
-        if (nParticles != nFinalState)
-            continue;
-
-        accepted_events->Fill("n_FS", 1);*/
 
         // check if we have the right amount of leptons, photons and protons
         unsigned short ne = 0, ng = 0, np = 0;
@@ -1261,19 +1186,6 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     }
     prompt["n_tagged"]->Fill(prompt_n_tagger);
     random["n_tagged"]->Fill(random_n_tagger);
-    protons_found->Fill(proton_count);
-/*    const size_t protons_found_prompt = sum_vector(taps_cluster_as_proton_prompt);
-    const size_t protons_found_random = sum_vector(taps_cluster_as_proton_random);
-    prompt["protons_found"]->Fill(protons_found_prompt);
-    random["protons_found"]->Fill(protons_found_random);
-    prompt["nTAPS_vs_protons_found"]->Fill(protons_found_prompt, tracksTAPS.size());
-    random["nTAPS_vs_protons_found"]->Fill(protons_found_random, tracksTAPS.size());
-    const size_t diff_clusters_prompt = non_zero_entries(taps_cluster_as_proton_prompt);
-    const size_t diff_clusters_random = non_zero_entries(taps_cluster_as_proton_random);
-    prompt["protons_diff_clusters"]->Fill(diff_clusters_prompt);
-    random["protons_diff_clusters"]->Fill(diff_clusters_random);
-    prompt["proton_diff_clusters_vs_q2"]->Fill(q2_true, diff_clusters_prompt);
-    random["proton_diff_clusters_vs_q2"]->Fill(q2_true, diff_clusters_random);*/
 }
 
 void ant::analysis::SaschaPhysics::Finish()
@@ -1305,6 +1217,172 @@ void ant::analysis::SaschaPhysics::ShowResult()
 
     // draw all random subtracted histograms
     //diff.Draw();
+}
+
+bool ant::analysis::SaschaPhysics::collect_particles_old_method(const ant::Event& event, particle_vector& particles)
+{
+    nParticles = nParticlesCB = nParticlesTAPS = 0;
+    GetParticles(event, particles);
+    if (nParticles != nFinalState)
+        return false;
+    accepted_events->Fill("n_FS", 1);
+
+    return true;
+}
+
+/* Achim's proposed test to predict the proton by kinematically fitting the eta' */
+bool ant::analysis::SaschaPhysics::collect_particles_kinfit_prediction(const TrackList& tracksCB, const TrackList& tracksTAPS,
+                                                                       const ant::Event& event, const TaggerHistList& tagger_hits,
+                                                                       particle_vector& particles, const double q2_true)
+{
+    const bool MC = !(event.MCTrue().Particles().GetAll().empty());
+    const TLorentzVector target(0., 0., 0., ParticleTypeDatabase::Proton.Mass());
+
+    // require all eta' particles in CB for now
+    if (tracksCB.size() != 3)
+        return false;
+    accepted_events->Fill("#tracks CB", 1);
+    size_t nCharged = 0;
+    for (const auto& track : tracksCB) {
+        if (track->Detector() & detector_t::PID) {
+            particles.push_back(Particle(ParticleTypeDatabase::eMinus, track));
+            nCharged++;
+        } else
+            particles.push_back(Particle(ParticleTypeDatabase::Photon, track));
+    }
+    if (nCharged != 2)
+        return false;
+    accepted_events->Fill("2 leptons", 1);
+    // swap the photon to the third (last) position
+    for (auto it = particles.begin(); it != particles.end()-1; ++it)
+        if (it->Type() == ParticleTypeDatabase::Photon) {
+            std::iter_swap(it, particles.end()-1);
+            break;
+        }
+    TLorentzVector etap(0., 0., 0., 0.);
+    for (auto it = particles.cbegin(); it != particles.cend(); ++it)
+        etap += *it;
+    double q2 = (particles.at(0) + particles.at(1)).M();
+    q2_vs_im_etap_candidates->Fill(etap.M(), q2);
+
+    auto etap_it = etap_fs.begin();
+    for (const auto& p : particles)
+        (etap_it++)->SetFromVector(p);
+
+    const APLCON::Result_t& etap_res = etap_fit.DoFit();
+    if (etap_res.Status != APLCON::Result_Status_t::Success)
+        return false;
+    accepted_events->Fill("fit #eta'", 1);
+    // Cut on chi^2
+    etap_chi2->Fill(etap_res.ChiSquare);
+    etap_chi2_vs_q2->Fill(q2_true, etap_res.ChiSquare);
+    if (etap_res.ChiSquare > 15.)
+        return false;
+    accepted_events->Fill("#chi^{2} #eta'", 1);
+    TLorentzVector fit_etap(0., 0., 0., 0.);
+    fit_etap += FitParticle::Make(etap_fs[0], ParticleTypeDatabase::eMinus.Mass());
+    fit_etap += FitParticle::Make(etap_fs[1], ParticleTypeDatabase::eMinus.Mass());
+    fit_etap += FitParticle::Make(etap_fs[2], ParticleTypeDatabase::Photon.Mass());
+    /* finished first step of proton test, next test tagger hit combinations */
+
+    /* loop over tagger hits */
+    // first used to predict and determine proton, processed in analysis afterwards
+
+    size_t proton_count = 0;
+    vector<size_t> taps_cluster_as_proton_prompt;
+    vector<size_t> taps_cluster_as_proton_random;
+    taps_cluster_as_proton_prompt.resize(tracksTAPS.size());
+    taps_cluster_as_proton_random.resize(tracksTAPS.size());
+    constexpr double proton_cone = 4.;
+    double best_match = proton_cone;
+    Particle proton_candidate(ParticleTypeDatabase::Proton, 0., 0., 0.);
+    for (const auto& taggerhit : tagger_hits) {
+        tagger_spectrum->Fill(taggerhit->PhotonEnergy());
+        tagger_time->Fill(taggerhit->Time());
+
+        // determine if the event is in the prompt or random window
+        bool is_prompt = false;
+        if (prompt_window.Contains(taggerhit->Time()))
+            is_prompt = true;
+        else if (random_window1.Contains(taggerhit->Time()) || random_window1.Contains(taggerhit->Time()))
+            is_prompt = false;
+        else
+            continue;
+
+        // now try to match each event and tagger hit combination to find the correct proton
+        Particle current_candidate(ParticleTypeDatabase::Proton, 0., 0., 0.);
+        TLorentzVector expected_proton = taggerhit->PhotonBeam() + target - fit_etap;
+        if (MC) {
+            Particle true_proton = get_true_proton(event.MCTrue().Particles().GetAll());
+            expected_proton_diff_vs_q2->Fill(q2_true, expected_proton.Angle(true_proton.Vect())*TMath::RadToDeg());
+            expected_proton_diff_vs_q2_rebin->Fill(q2_true, expected_proton.Angle(true_proton.Vect())*TMath::RadToDeg());
+            expected_proton_diff_phi_vs_theta->Fill((true_proton.Theta() - expected_proton.Theta())*TMath::RadToDeg(),
+                                                    (true_proton.Phi() - expected_proton.Phi())*TMath::RadToDeg());
+            expected_proton_energy_predicted_vs_true->Fill(true_proton.Ek(), expected_proton.E() - expected_proton.M());
+        }
+        bool proton_found = false;
+        size_t i = 0;
+        double current_angle = 0.;
+        for (const auto& track : tracksTAPS) {
+            current_candidate = Particle(ParticleTypeDatabase::Proton, track);
+            current_angle = expected_proton.Angle(current_candidate.Vect())*TMath::RadToDeg();
+            if (current_angle < proton_cone) {
+                if (proton_found)
+                    accepted_events->Fill("2nd proton", 1);
+                proton_found = true;
+                //break;
+                proton_count++;
+                if (is_prompt)
+                    taps_cluster_as_proton_prompt[i]++;
+                else
+                    taps_cluster_as_proton_random[i]++;
+                // check if the current angle is better than the previous determined ones
+                if (current_angle < best_match) {
+                    best_match = current_angle;
+                    proton_candidate = Particle(ParticleTypeDatabase::Proton, track);
+                }
+            }
+            i++;
+        }
+    }
+    if (best_match >= proton_cone)
+        return false;
+    accepted_events->Fill("proton found", 1);
+    particles.push_back(proton_candidate);
+    /* some histograms to keep track what was found */
+    protons_found->Fill(proton_count);
+    const size_t protons_found_prompt = sum_vector(taps_cluster_as_proton_prompt);
+    const size_t protons_found_random = sum_vector(taps_cluster_as_proton_random);
+    prompt["protons_found"]->Fill(protons_found_prompt);
+    random["protons_found"]->Fill(protons_found_random);
+    prompt["nTAPS_vs_protons_found"]->Fill(protons_found_prompt, tracksTAPS.size());
+    random["nTAPS_vs_protons_found"]->Fill(protons_found_random, tracksTAPS.size());
+    const size_t diff_clusters_prompt = non_zero_entries(taps_cluster_as_proton_prompt);
+    const size_t diff_clusters_random = non_zero_entries(taps_cluster_as_proton_random);
+    prompt["protons_diff_clusters"]->Fill(diff_clusters_prompt);
+    random["protons_diff_clusters"]->Fill(diff_clusters_random);
+    prompt["proton_diff_clusters_vs_q2"]->Fill(q2_true, diff_clusters_prompt);
+    random["proton_diff_clusters_vs_q2"]->Fill(q2_true, diff_clusters_random);
+
+    return true;
+}
+
+bool ant::analysis::SaschaPhysics::collect_particles_relative_taps_time(const TrackList& tracksCB, const TrackList& tracksTAPS,
+                                                                        particle_vector& particles)
+{
+    if (!IdentifyTracks(tracksCB, tracksTAPS, particles))
+        return false;
+    accepted_events->Fill("identification", 1);
+
+    sort_particles(particles);
+
+    return true;
+}
+
+bool ant::analysis::SaschaPhysics::collect_particles_kinfit_selection(const ant::Event& event, particle_vector& particles)
+{
+    cerr << "This method does not exist yet" << endl;
+    exit(1);
 }
 
 void ant::analysis::SaschaPhysics::sort_particles(particle_vector& particles)

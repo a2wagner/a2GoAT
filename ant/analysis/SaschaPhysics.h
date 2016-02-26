@@ -240,8 +240,13 @@ protected:
     // threshold to check if double value should be treated as zero
     static constexpr double EPSILON = 2*std::numeric_limits<double>::epsilon();
     // MC smearing related
-    static constexpr bool smearMC = true;
+    static constexpr bool smearMC = false;
     static constexpr double smear_factor = 2;
+    // method of proton selection
+    static constexpr bool USE_OLD_METHOD = false;
+    static constexpr bool USE_KINFIT_PREDICTION = true;
+    static constexpr bool USE_RELATIVE_TAPS_TIME = false;
+    static constexpr bool USE_KINFIT_SELECTION = false;
 
     size_t nParticles, nParticlesCB, nParticlesTAPS;
 
@@ -271,6 +276,7 @@ protected:
     TH1D* etap_chi2;
     TH2D* etap_chi2_vs_q2;
     TH2D* q2_vs_im_candidates;
+    TH2D* q2_vs_im_etap_candidates;
     // pi0 background tests
     TH1D* sub_pi0_cand_im;
     TH1D* sub_pi0_cand_im_cut;
@@ -293,6 +299,8 @@ protected:
     TH2D* n_cluster_taps_vs_open_angle;
     TH2D* expected_proton_diff_vs_q2;
     TH2D* expected_proton_diff_vs_q2_rebin;
+    TH2D* expected_proton_diff_phi_vs_theta;
+    TH2D* expected_proton_energy_predicted_vs_true;
     TH1D* protons_found;
 
     std::map<std::string, TH1*> pulls_prompt;
@@ -344,6 +352,14 @@ protected:
     bool IdentifyTracks(const TrackList& tracksCB, const TrackList& tracksTAPS, particle_vector& particles);
     void GetParticles(const ant::Event& event, particle_vector& particles);
     void GetTrueParticles(const ant::Event& event, particle_vector& particles);
+    // methods for different ways of how to collect / select particles
+    bool collect_particles_old_method(const ant::Event& event, particle_vector& particles);
+    bool collect_particles_kinfit_prediction(const TrackList& tracksCB, const TrackList& tracksTAPS,
+                                             const ant::Event& event, const TaggerHistList& tagger_hits,
+                                             particle_vector& particles, const double q2_true);
+    bool collect_particles_relative_taps_time(const TrackList& tracksCB, const TrackList& tracksTAPS,
+                                              particle_vector& particles);
+    bool collect_particles_kinfit_selection(const ant::Event& event, particle_vector& particles);
 
     double calculate_energy_weighted_cb_time_average(const TrackList&) const;
     void sort_particles(particle_vector&);
