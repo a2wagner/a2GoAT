@@ -13,6 +13,7 @@
 using namespace std;
 using namespace ant;
 
+std::default_random_engine analysis::SaschaPhysics::FitParticle::generator;
 
 TLorentzVector analysis::SaschaPhysics::FitParticle::Make(const std::vector<double>& EkThetaPhi, const Double_t m)
 {
@@ -24,8 +25,23 @@ TLorentzVector analysis::SaschaPhysics::FitParticle::Make(const std::vector<doub
     return l;
 }
 
-void analysis::SaschaPhysics::FitParticle::Smear()
+void analysis::SaschaPhysics::FitParticle::increase_sigma(const double factor)
 {
+    Ek_Sigma *= factor;
+    Theta_Sigma *= factor;
+    Phi_Sigma *= factor;
+}
+
+void analysis::SaschaPhysics::FitParticle::Smear(const double factor)
+{
+    using gauss_t = std::normal_distribution<double>;
+
+    gauss_t gauss_Ek(0, factor*Ek_Sigma);
+    Ek += gauss_Ek(generator);
+    gauss_t gauss_Theta(0, factor*Theta_Sigma);
+    Theta += gauss_Theta(generator);
+    gauss_t gauss_Phi(0, factor*Phi_Sigma);
+    Phi += gauss_Phi(generator);
 }
 
 void analysis::SaschaPhysics::FillIM(TH1 *h, const std::vector<analysis::SaschaPhysics::FitParticle>& final_state)
@@ -1091,11 +1107,20 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         auto fs_it = final_state.begin();
         auto det_it = detectors.begin();
         det_it++;  // skip first element which is the beam photon --> not considered when recalculating clusters due to v_z
-        for (const auto& p : particles) {
-            //(it++)->SetFromVector(p);
-            set_fit_particle(p, *fs_it++);
-            *det_it++ = p.Tracks().front()->Detector();
-        }
+        // if MC data and it should be smeared, do it here
+        if (MC && smearMC) {
+            for (const auto& p : particles) {
+                fs_it->SetFromVector(p);
+                //fs_it->increase_sigma(smear_factor);
+                (fs_it++)->Smear(smear_factor);
+                *det_it++ = p.Tracks().front()->Detector();
+            }
+            FillIM(h["im_smeared"], final_state);
+        } else
+            for (const auto& p : particles) {
+                set_fit_particle(p, *fs_it++);
+                *det_it++ = p.Tracks().front()->Detector();
+            }
 
         double q2_before = (particles[0] + particles[1]).M();
         double lepton_open_angle = particles[0].Angle(particles[1].Vect())*TMath::RadToDeg();
@@ -1128,15 +1153,9 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         beam.Theta_Sigma = .0001;
         beam.Phi_Sigma = .0001;
 
-        FillIM(h["im_true"], final_state);
-
-//        // smear the MC true data
-//        proton.Smear();
-//        for(auto& photon : photons)
-//            photon.Smear();
-//        beam.Smear();
-
-//        FillIM(h["im_smeared"], photons);
+        //FillIM(h["im_true"], final_state);
+        // use "true" here as not smeared
+        h["im_true"]->Fill(etap.M());
 
         if (missM < 880. && missM > 1130.)
             continue;

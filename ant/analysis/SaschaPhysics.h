@@ -90,7 +90,8 @@ protected:
                     std::addressof(Phi_Sigma)};
         }
 
-        void Smear();
+        void Smear(const double factor = 1.);
+        void increase_sigma(const double factor);
 
         double Ek;
         double Ek_Sigma;
@@ -98,6 +99,9 @@ protected:
         double Theta_Sigma;
         double Phi;
         double Phi_Sigma;
+
+    private:
+        static std::default_random_engine generator;
     };
 
     template<typename T>
@@ -235,6 +239,9 @@ protected:
     static constexpr double TARGET_MAX = 10.;
     // threshold to check if double value should be treated as zero
     static constexpr double EPSILON = 2*std::numeric_limits<double>::epsilon();
+    // MC smearing related
+    static constexpr bool smearMC = true;
+    static constexpr double smear_factor = 2;
 
     size_t nParticles, nParticlesCB, nParticlesTAPS;
 
