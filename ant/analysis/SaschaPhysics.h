@@ -244,9 +244,9 @@ protected:
     static constexpr double smear_factor = 2;
     // method of proton selection
     static constexpr bool USE_OLD_METHOD = false;
-    static constexpr bool USE_KINFIT_PREDICTION = true;
+    static constexpr bool USE_KINFIT_PREDICTION = false;
     static constexpr bool USE_RELATIVE_TAPS_TIME = false;
-    static constexpr bool USE_KINFIT_SELECTION = false;
+    static constexpr bool USE_KINFIT_SELECTION = true;
 
     size_t nParticles, nParticlesCB, nParticlesTAPS;
 
@@ -373,6 +373,8 @@ protected:
     const Particle get_true_proton(const ParticleList&);
     void proton_tests(const TrackList&, const TaggerHitPtr);
 
+    template<typename T>
+    void shift_right(std::vector<T>&);
     size_t get_histogram_neigbours(TH1* const, const int, vector<double>&, const int depth = 1) const;
     double local_bin_average(TH1* const, const int) const;
 

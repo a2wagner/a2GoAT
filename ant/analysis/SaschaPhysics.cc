@@ -1410,33 +1410,23 @@ bool ant::analysis::SaschaPhysics::collect_particles_relative_taps_time(const Tr
 bool ant::analysis::SaschaPhysics::collect_particles_kinfit_selection(const TrackList& tracksCB, const TrackList& tracksTAPS,
                                                                       const TaggerHistList& tagger_hits, particle_vector& particles)
 {
+    particle_vector candidates;
     // we need at least 2 PID entries for the leptons
     if (tracksCB.size() < 2)
         return false;
     accepted_events->Fill("#tracks CB => 2", 1);
     // check for at least 2 PID entries
-    size_t nCharged = 0;
-    for (const auto& track : tracksCB)
-        if (track->Detector() & detector_t::PID) {
-            particles.emplace_back(Particle(ParticleTypeDatabase::eMinus, track));
-            nCharged++;
-        }
+    size_t nCharged = std::count_if(tracksCB.begin(), tracksCB.end(), [](const TrackPtr t){ return t->Detector() & detector_t::PID; });
     if (nCharged < 2)
         return false;
     accepted_events->Fill("#PID entries => 2", 1);
     for (const auto& track : tracksCB)
-        if (!(track->Detector() & detector_t::PID))
-            particles.emplace_back(Particle(ParticleTypeDatabase::Photon, track));
+        candidates.emplace_back(Particle(ParticleTypeDatabase::Photon, track));
     for (const auto& track : tracksTAPS)
-        particles.emplace_back(Particle(ParticleTypeDatabase::Photon, track));
+        candidates.emplace_back(Particle(ParticleTypeDatabase::Photon, track));
 
-    // combinations to check for the proton, only last entry is tested as proton
-    const std::vector<std::array<size_t, 4>> combinations = {{0, 1, 2, 3},
-                                                             {0, 1, 3, 2},
-                                                             {0, 2, 3, 1},
-                                                             {1, 2, 3, 0}};
     double bestChi2 = std::numeric_limits<double>::infinity();
-    size_t bestComb = combinations.size();
+    size_t bestComb = std::numeric_limits<size_t>::infinity();
     size_t comb = 0;
     // loop over all tagger hits and try to find the best combination to determine the proton
     for (const auto& taggerhit : tagger_hits) {
@@ -1448,6 +1438,9 @@ bool ant::analysis::SaschaPhysics::collect_particles_kinfit_selection(const Trac
             is_prompt = false;
         else
             continue;*/
+        if (prompt_window.Contains(taggerhit->Time())
+                || random_window1.Contains(taggerhit->Time()) || random_window1.Contains(taggerhit->Time()))
+            continue;
 
         beam.SetFromVector(taggerhit->PhotonBeam());
         // set beam sigmas, energy 2/sqrt(3)
@@ -1455,10 +1448,11 @@ bool ant::analysis::SaschaPhysics::collect_particles_kinfit_selection(const Trac
         beam.Theta_Sigma = .0001;
         beam.Phi_Sigma = .0001;
 
-        for (const auto& combination : combinations) {
-            auto it = event_cand.begin();
-            for (const size_t i : combination)
-                set_fit_particle(particles.at(i), *it++);
+        for (size_t i = 0; i < candidates.size(); i++) {
+            auto cand = event_cand.begin();
+            for (auto it = candidates.cbegin(); it != candidates.cend()-1; ++it)
+                set_fit_particle(*it, *cand++);
+            set_fit_particle(Particle(ParticleTypeDatabase::Proton, candidates.back().Tracks().front()), *cand++);
             // set proton candidate's energy sigma to zero to indicate it's unmeasured
             event_cand.back().Ek_Sigma = 0;
 
@@ -1472,26 +1466,32 @@ bool ant::analysis::SaschaPhysics::collect_particles_kinfit_selection(const Trac
                 bestComb = comb;
             }
             comb++;
+            shift_right(candidates);
         }
     }
 
     // did we find a good combination?
-    if (bestComb >= combinations.size())
+    if (bestComb >= candidates.size())
         return false;
     accepted_events->Fill("best comb proton", 1);
 
-    const size_t proton_pos = combinations.at(bestComb).back();
-    // in case we only have 2 PID entries, the first two combinations match the conditions we need
-    if (nCharged == 2) {
-        if (comb > 2)
-            return false;
-        // just assign the proton mass according to the matched combination
-        particles.at(proton_pos) = Particle(ParticleTypeDatabase::Proton, particles.at(proton_pos).Tracks().front());
-    } else {
-        // if we have more than 2 PID entries, all combinations are fine
-        particles.at(2) = Particle(ParticleTypeDatabase::Photon, particles.at(2).Tracks().front());
-        particles.at(proton_pos) = Particle(ParticleTypeDatabase::Proton, particles.at(proton_pos).Tracks().front());
-    }
+    // restore best combination
+    for (size_t i = 0; i <= bestComb; i++)
+        shift_right(candidates);
+    // fill particles vector accordingly
+    const Particle proton = Particle(ParticleTypeDatabase::Proton, candidates.back().Tracks().front());
+    candidates.pop_back();
+    // first check if we have enough PID entries for the meson, then sort it
+    nCharged = std::count_if(candidates.begin(), candidates.end(),
+                             [](const Particle p){ return p.Tracks().front()->Detector() & detector_t::PID; });
+    if (nCharged < 2)
+        return false;
+    sort(candidates.begin(), candidates.end(),
+         [] (const Particle a, const Particle b){ return a.Tracks().front()->VetoEnergy() > b.Tracks().front()->VetoEnergy(); });
+    particles.emplace_back(Particle(ParticleTypeDatabase::eMinus, candidates.at(0).Tracks().front()));
+    particles.emplace_back(Particle(ParticleTypeDatabase::eMinus, candidates.at(1).Tracks().front()));
+    particles.emplace_back(Particle(ParticleTypeDatabase::Photon, candidates.at(2).Tracks().front()));
+    particles.emplace_back(proton);
 
     return true;
 }
@@ -1849,6 +1849,12 @@ double ant::analysis::SaschaPhysics::get_sigma(const Particle& p, TH2* const h) 
         sigma = local_bin_average(h, bin);
 
     return sigma;
+}
+
+template<typename T>
+void ant::analysis::SaschaPhysics::shift_right(std::vector<T>& v)
+{
+    std::rotate(v.begin(), v.end() -1, v.end());
 }
 
 // select ring of neighbouring bins, depth defines how many rings
