@@ -65,6 +65,7 @@ protected:
     void CopyParticles(GTreeParticle* tree, const ant::ParticleTypeDatabase::Type& type, ant::Event& event);
     void CopyTracks(GTreeTrack* tree, Event& event);
     void CopyPlutoParticles(GTreePluto* tree, Event &event);
+    void CopyGeantInfos(GTreeA2Geant* tree, Event &event);
     void CopyTaggerHits(Event& event);
     void CopyTriggerInfo(GTreeTrigger* tree, Event& event);
 

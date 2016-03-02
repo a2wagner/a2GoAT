@@ -19,6 +19,9 @@ namespace ant {
 class Event: public ant::printable_traits {
 public:
     class Data: public ant::printable_traits {
+    private:
+        TVector3 vertex;
+
     public:
 
         class PTypeLists: public ant::printable_traits {
@@ -72,6 +75,9 @@ public:
 
         const TriggerInfo& TriggerInfos() const { return triggerinfo; }
               TriggerInfo& TriggerInfos()       { return triggerinfo; }
+
+        const TVector3& Vertex() const {return vertex; }
+        void SetVertex(const TVector3 v) { vertex = v; }
 
               std::ostream &Print(std::ostream &stream) const;
     };

@@ -68,6 +68,8 @@ void EventManager::ProcessEvent()
 
     CopyPlutoParticles(GetPluto(), event);
 
+    CopyGeantInfos(GetGeant(), event);
+
     CopyTriggerInfo(GetTrigger(),    event);
 
     RunPhysics(event);
@@ -163,6 +165,7 @@ void EventManager::CopyTracks(GTreeTrack *tree, Event &event)
                     tree->GetShortEnergy(i)
                     )));
     }
+    event.Reconstructed().SetVertex(TVector3(0,0,0));
 }
 
 void EventManager::CopyPlutoParticles(GTreePluto *tree, Event& event)
@@ -211,6 +214,12 @@ void EventManager::CopyPlutoParticles(GTreePluto *tree, Event& event)
     }
 
     //TODO: CBEsum/Multiplicity into TriggerInfo
+}
+
+void EventManager::CopyGeantInfos(GTreeA2Geant* tree, Event &event)
+{
+    // copy the Vertex to the MCTrue data
+    event.MCTrue().SetVertex(tree->GetVertex());
 }
 
 void EventManager::CopyTaggerHits(Event &event)

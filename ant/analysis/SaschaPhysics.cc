@@ -1113,7 +1113,10 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
 
         if (includeVertexFit) {
             h["vertex_z_after"]->Fill(result.Variables.at("v_z").Value.After);
-            h["vertex_z_before"]->Fill(result.Variables.at("v_z").Value.Before);
+            if (MC)
+                h["vertex_z_before"]->Fill(event.MCTrue().Vertex().Z());
+            else
+                h["vertex_z_before"]->Fill(event.Reconstructed().Vertex().Z());
         }
 
         FillIM(h["im_fit"], final_state);
