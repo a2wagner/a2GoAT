@@ -359,7 +359,8 @@ protected:
                                              particle_vector& particles, const double q2_true);
     bool collect_particles_relative_taps_time(const TrackList& tracksCB, const TrackList& tracksTAPS,
                                               particle_vector& particles);
-    bool collect_particles_kinfit_selection(const ant::Event& event, particle_vector& particles);
+    bool collect_particles_kinfit_selection(const TrackList& tracksCB, const TrackList& tracksTAPS,
+                                            const TaggerHistList& tagger_hits, particle_vector& particles);
 
     double calculate_energy_weighted_cb_time_average(const TrackList&) const;
     void sort_particles(particle_vector&);
@@ -383,6 +384,9 @@ protected:
     // eta' fitter
     APLCON etap_fit;
     std::vector<FitParticle> etap_fs;
+    // proton identification
+    APLCON proton_fit;
+    std::vector<FitParticle> event_cand;
 
 
 public:

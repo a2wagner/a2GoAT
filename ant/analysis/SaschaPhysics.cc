@@ -401,7 +401,9 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     final_state(nFinalState),
     detectors(nFinalState + 1),  // beam photon needs to be considered
     etap_fit("eta' fitter"),
-    etap_fs(3)
+    etap_fs(3),
+    proton_fit("protin fitter"),
+    event_cand(nFinalState)
 {
     cout << "Eta' Dalitz Physics:\n";
     static_assert(USE_OLD_METHOD || USE_KINFIT_PREDICTION || USE_RELATIVE_TAPS_TIME || USE_KINFIT_SELECTION,
@@ -657,8 +659,7 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     if (includeCoplanarityConstraint)
         fitter.AddConstraint("CoplanarityConstraint", all_names, CoplanarityConstraint);
 
-    // Constraint: Invariant mass of nPhotons equals constant IM,
-    // make lambda catch also this with [&] specification
+    // Constraint: Invariant mass of final state equals constant IM
     auto RequireIM = [recalculate_cluster] (const vector<vector<double>>& particles) -> double
     {
         TLorentzVector sum(0,0,0,0);
@@ -677,43 +678,6 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     if (includeIMconstraint)
         fitter.AddConstraint("RequireIM", all_names, RequireIM);
 
-    // Constraint: Vertex position in z direction: v_z (positive if upstream)
-    // if the particle originated from (0,0,v_z) instead of origin,
-    // the corrected angle theta' is given by
-    // tan(theta') = (R sin(theta))/(R cos(theta) - v_z)
-    // R is the CB radius, 10in aka 25.4cm
-
-/*    auto VertexConstraint = [&] (vector<vector<double>>& particles) -> double
-    {
-        constexpr double R = 25.4;
-        // last element in particles is vz (scalar has dimension 1)
-        // see AddConstraint below
-        const double v_z = particles.back()[0];
-        particles.resize(particles.size()-1); // get rid of last element
-        // correct each particle's theta angle,
-        // then calculate invariant mass of all particles
-        TLorentzVector sum(0,0,0,0);
-        size_t n = 0;
-        for (auto i = particles.begin()+1; i != particles.end()-1; ++i) {
-            const double theta = (*i)[1]; // second element is theta
-            const double theta_p = std::atan2( R*sin(theta), R*cos(theta) - v_z);
-            (*i)[1] = theta_p;
-            if (n < 2)  // first two particles are the electron and positron
-                sum += FitParticle::Make(*i, ParticleTypeDatabase::eMinus.Mass());
-            else  // last particle is the photon
-                sum += FitParticle::Make(*i, ParticleTypeDatabase::Photon.Mass());
-            n++;
-        }
-        return sum.M() - IM;
-    };
-
-    if (includeVertexFit) {
-        fitter.AddUnmeasuredVariable("v_z"); // default value 0
-        fitter.AddConstraint("VertexConstraint", all_names + std::vector<string>{"v_z"}, VertexConstraint);
-    }
-
-    static_assert(!(includeIMconstraint && includeVertexFit), "Do not enable Vertex and IM Fit at the same time");
-*/
     // create pull histograms
     const BinSettings pull_bins(50,-3,3);
     // change back to former directory to store pulls
@@ -747,9 +711,8 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     etap_fit.LinkVariable("Lepton2", etap_fs[1].Link(), etap_fs[1].LinkSigma());
     etap_fit.LinkVariable("Photon", etap_fs[2].Link(), etap_fs[2].LinkSigma());
     vector<string> etap_names = {"Lepton1", "Lepton2", "Photon"};
-    // Constraint: Invariant mass of nPhotons equals constant IM,
-    // make lambda catch also this with [&] specification
-    auto etapIM = [&] (const vector<vector<double>>& particles) -> double
+    // Constraint: Invariant mass of final state equals constant IM
+    auto etapIM = [] (const vector<vector<double>>& particles) -> double
     {
         TLorentzVector sum(0,0,0,0);
         sum += FitParticle::Make(particles[0], ParticleTypeDatabase::eMinus.Mass());
@@ -763,6 +726,69 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     APLCON::Fit_Settings_t etap_settings = etap_fit.GetSettings();
     etap_settings.MaxIterations = 10;
     etap_fit.SetSettings(etap_settings);
+
+    // proton fitter
+    proton_fit.LinkVariable("Beam", beam.Link(), beam.LinkSigma());
+    proton_fit.LinkVariable("Photon1", event_cand[0].Link(), event_cand[0].LinkSigma());
+    proton_fit.LinkVariable("Photon2", event_cand[1].Link(), event_cand[1].LinkSigma());
+    proton_fit.LinkVariable("Photon3", event_cand[2].Link(), event_cand[2].LinkSigma());
+    proton_fit.LinkVariable("Proton", event_cand[3].Link(), event_cand[3].LinkSigma());
+    vector<string> proton_names = {"Beam", "Photon1", "Photon2", "Photon3", "Proton"};
+    // Constraint: Energy and momentum balance, assuming all eta' decay products are photons
+    auto EnergyMomentumBalance_allPhotons = [] (const vector<vector<double>>& particles) -> vector<double>
+    {
+        const TLorentzVector target(0,0,0, ParticleTypeDatabase::Proton.Mass());
+        TLorentzVector diff(0,0,0,0);
+        // assume first particle is beam photon
+        diff = target + FitParticle::Make(particles[0], ParticleTypeDatabase::Photon.Mass());
+        // assume following three particles are eta' decay products
+        diff -= FitParticle::Make(particles[1], ParticleTypeDatabase::Photon.Mass());
+        diff -= FitParticle::Make(particles[2], ParticleTypeDatabase::Photon.Mass());
+        diff -= FitParticle::Make(particles[3], ParticleTypeDatabase::Photon.Mass());
+        // assume last particle outgoing proton
+        diff -= FitParticle::Make(particles[4], ParticleTypeDatabase::Proton.Mass());
+
+        return {diff.X(), diff.Y(), diff.Z(), diff.T()};
+    };
+    proton_fit.AddConstraint("EnergyMomentumBalance_allPhotons", proton_names, EnergyMomentumBalance_allPhotons);
+    // iteration steps
+    APLCON::Fit_Settings_t proton_settings = proton_fit.GetSettings();
+    proton_settings.MaxIterations = 10;
+    proton_fit.SetSettings(proton_settings);
+
+    // Constraints including moving z vertex
+    auto EnergyMomentumBalanceZ = [recalculate_cluster] (const vector<vector<double>>& particles) -> vector<double>
+    {
+        const TLorentzVector target(0,0,0, ParticleTypeDatabase::Proton.Mass());
+        // assume first particle is beam photon
+        TLorentzVector diff = target + FitParticle::Make(particles[0], ParticleTypeDatabase::Photon.Mass());
+        /* from here all clusters are recalculated by taking a shifted z vertex position into account */
+        // assume second and third particle outgoing leptons
+        diff -= FitParticle::Make(recalculate_cluster(particles, 1), ParticleTypeDatabase::eMinus.Mass());
+        diff -= FitParticle::Make(recalculate_cluster(particles, 2), ParticleTypeDatabase::eMinus.Mass());
+        // assume fourth particle outgoing photon
+        diff -= FitParticle::Make(recalculate_cluster(particles, 3), ParticleTypeDatabase::Photon.Mass());
+        // assume last particle outgoing proton
+
+        return {diff.X(), diff.Y(), diff.Z(), diff.T()};
+    };
+    auto CoplanarityConstraintZ = [recalculate_cluster] (const vector<vector<double>>& particles) -> double
+    {
+        TLorentzVector etap = FitParticle::Make(recalculate_cluster(particles, 1), ParticleTypeDatabase::eMinus.Mass());
+        etap += FitParticle::Make(recalculate_cluster(particles, 2), ParticleTypeDatabase::eMinus.Mass());
+        etap += FitParticle::Make(recalculate_cluster(particles, 3), ParticleTypeDatabase::Photon.Mass());
+        TLorentzVector proton = FitParticle::Make(recalculate_cluster(particles, 4), ParticleTypeDatabase::Proton.Mass());
+
+        return abs(etap.Phi() - proton.Phi())*TMath::RadToDeg() - 180.;
+    };
+    auto RequireIMZ = [recalculate_cluster] (const vector<vector<double>>& particles) -> double
+    {
+        TLorentzVector sum = FitParticle::Make(recalculate_cluster(particles, 1), ParticleTypeDatabase::eMinus.Mass());
+        sum += FitParticle::Make(recalculate_cluster(particles, 2), ParticleTypeDatabase::eMinus.Mass());
+        sum += FitParticle::Make(recalculate_cluster(particles, 3), ParticleTypeDatabase::Photon.Mass());
+
+        return sum.M() - IM;
+    };
 }
 
 void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
@@ -873,7 +899,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     else if (USE_RELATIVE_TAPS_TIME)
         result = collect_particles_relative_taps_time(tracksCB, tracksTAPS, particles);
     else if (USE_KINFIT_SELECTION)
-        result = collect_particles_kinfit_selection(event, particles);
+        result = collect_particles_kinfit_selection(tracksCB, tracksTAPS, tagger_hits, particles);
     else {
         cerr << "ERROR: not specified how the particles should be collected!" << endl;
         exit(1);
@@ -882,6 +908,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
     // successfully collected particles?
     if (!result)
         return;
+    accepted_events->Fill("collection", 1);
 
     etap = TLorentzVector(0., 0., 0., 0.);
     for (auto it = particles.cbegin(); it != particles.cend()-1; ++it)
@@ -1024,6 +1051,26 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         double openAngle_p_TAPS_expected = proton.Angle(missingProton.Vect())*TMath::RadToDeg();
         h["proton_angle_TAPS_expected"]->Fill(openAngle_p_TAPS_expected);
 
+        double q2_before = (particles[0] + particles[1]).M();
+        double lepton_open_angle = particles[0].Angle(particles[1].Vect())*TMath::RadToDeg();
+        double en_lep1 = particles[0].T();
+        double en_lep2 = particles[1].T();
+        if (en_lep1 < en_lep2) {
+            en_lep1 = en_lep2;
+            en_lep2 = particles[0].T();
+        }
+        h["opening_angle_leptons"]->Fill(lepton_open_angle);
+        h["lepton_energies"]->Fill(en_lep1, en_lep2);
+        h["energy_lepton1"]->Fill(en_lep1);
+        h["energy_lepton2"]->Fill(en_lep2);
+        h["energy_photon"]->Fill(particles[2].E());
+        h["photon_energy_vs_opening_angle"]->Fill(lepton_open_angle, particles[2].E());
+        h["opening_angle_vs_q2"]->Fill(q2_before, lepton_open_angle);
+        h["opening_angle_vs_E_high"]->Fill(en_lep1 > en_lep2 ? en_lep1 : en_lep2, lepton_open_angle);
+        h["opening_angle_vs_E_low"]->Fill(en_lep1 < en_lep2 ? en_lep1 : en_lep2, lepton_open_angle);
+        h["q2_dist_before"]->Fill(q2_before);
+
+        /* preselection and cuts applied, now start with kinematic fitting */
         //std::copy(particles.begin(), particles.end(), final_state);
 //        std::transform(particles.begin(), particles.end(), final_state.begin(),
 //                       [](Particle& p) -> double { return FitParticle().SetFromVector(p); });
@@ -1044,25 +1091,6 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
                 set_fit_particle(p, *fs_it++);
                 *det_it++ = p.Tracks().front()->Detector();
             }
-
-        double q2_before = (particles[0] + particles[1]).M();
-        double lepton_open_angle = particles[0].Angle(particles[1].Vect())*TMath::RadToDeg();
-        double en_lep1 = particles[0].T();
-        double en_lep2 = particles[1].T();
-        if (en_lep1 < en_lep2) {
-            en_lep1 = en_lep2;
-            en_lep2 = particles[0].T();
-        }
-        h["opening_angle_leptons"]->Fill(lepton_open_angle);
-        h["lepton_energies"]->Fill(en_lep1, en_lep2);
-        h["energy_lepton1"]->Fill(en_lep1);
-        h["energy_lepton2"]->Fill(en_lep2);
-        h["energy_photon"]->Fill(particles[2].E());
-        h["photon_energy_vs_opening_angle"]->Fill(lepton_open_angle, particles[2].E());
-        h["opening_angle_vs_q2"]->Fill(q2_before, lepton_open_angle);
-        h["opening_angle_vs_E_high"]->Fill(en_lep1 > en_lep2 ? en_lep1 : en_lep2, lepton_open_angle);
-        h["opening_angle_vs_E_low"]->Fill(en_lep1 < en_lep2 ? en_lep1 : en_lep2, lepton_open_angle);
-        h["q2_dist_before"]->Fill(q2_before);
 
         // set proton energy sigma to zero to indicate it's unmeasured
         final_state[3].Ek_Sigma = 0;
@@ -1300,9 +1328,6 @@ bool ant::analysis::SaschaPhysics::collect_particles_kinfit_prediction(const Tra
     double best_match = proton_cone;
     Particle proton_candidate(ParticleTypeDatabase::Proton, 0., 0., 0.);
     for (const auto& taggerhit : tagger_hits) {
-        tagger_spectrum->Fill(taggerhit->PhotonEnergy());
-        tagger_time->Fill(taggerhit->Time());
-
         // determine if the event is in the prompt or random window
         bool is_prompt = false;
         if (prompt_window.Contains(taggerhit->Time()))
@@ -1382,10 +1407,93 @@ bool ant::analysis::SaschaPhysics::collect_particles_relative_taps_time(const Tr
     return true;
 }
 
-bool ant::analysis::SaschaPhysics::collect_particles_kinfit_selection(const ant::Event& event, particle_vector& particles)
+bool ant::analysis::SaschaPhysics::collect_particles_kinfit_selection(const TrackList& tracksCB, const TrackList& tracksTAPS,
+                                                                      const TaggerHistList& tagger_hits, particle_vector& particles)
 {
-    cerr << "This method does not exist yet" << endl;
-    exit(1);
+    // we need at least 2 PID entries for the leptons
+    if (tracksCB.size() < 2)
+        return false;
+    accepted_events->Fill("#tracks CB => 2", 1);
+    // check for at least 2 PID entries
+    size_t nCharged = 0;
+    for (const auto& track : tracksCB)
+        if (track->Detector() & detector_t::PID) {
+            particles.emplace_back(Particle(ParticleTypeDatabase::eMinus, track));
+            nCharged++;
+        }
+    if (nCharged < 2)
+        return false;
+    accepted_events->Fill("#PID entries => 2", 1);
+    for (const auto& track : tracksCB)
+        if (!(track->Detector() & detector_t::PID))
+            particles.emplace_back(Particle(ParticleTypeDatabase::Photon, track));
+    for (const auto& track : tracksTAPS)
+        particles.emplace_back(Particle(ParticleTypeDatabase::Photon, track));
+
+    // combinations to check for the proton, only last entry is tested as proton
+    const std::vector<std::array<size_t, 4>> combinations = {{0, 1, 2, 3},
+                                                             {0, 1, 3, 2},
+                                                             {0, 2, 3, 1},
+                                                             {1, 2, 3, 0}};
+    double bestChi2 = std::numeric_limits<double>::infinity();
+    size_t bestComb = combinations.size();
+    size_t comb = 0;
+    // loop over all tagger hits and try to find the best combination to determine the proton
+    for (const auto& taggerhit : tagger_hits) {
+        // determine if the event is in the prompt or random window
+        /*bool is_prompt = false;
+        if (prompt_window.Contains(taggerhit->Time()))
+            is_prompt = true;
+        else if (random_window1.Contains(taggerhit->Time()) || random_window1.Contains(taggerhit->Time()))
+            is_prompt = false;
+        else
+            continue;*/
+
+        beam.SetFromVector(taggerhit->PhotonBeam());
+        // set beam sigmas, energy 2/sqrt(3)
+        beam.Ek_Sigma = 1.1547;
+        beam.Theta_Sigma = .0001;
+        beam.Phi_Sigma = .0001;
+
+        for (const auto& combination : combinations) {
+            auto it = event_cand.begin();
+            for (const size_t i : combination)
+                set_fit_particle(particles.at(i), *it++);
+            // set proton candidate's energy sigma to zero to indicate it's unmeasured
+            event_cand.back().Ek_Sigma = 0;
+
+            const APLCON::Result_t& res = proton_fit.DoFit();
+            if (res.Status != APLCON::Result_Status_t::Success)
+                continue;
+
+            double chi2 = res.ChiSquare;
+            if (chi2 < bestChi2) {
+                bestChi2 = chi2;
+                bestComb = comb;
+            }
+            comb++;
+        }
+    }
+
+    // did we find a good combination?
+    if (bestComb >= combinations.size())
+        return false;
+    accepted_events->Fill("best comb proton", 1);
+
+    const size_t proton_pos = combinations.at(bestComb).back();
+    // in case we only have 2 PID entries, the first two combinations match the conditions we need
+    if (nCharged == 2) {
+        if (comb > 2)
+            return false;
+        // just assign the proton mass according to the matched combination
+        particles.at(proton_pos) = Particle(ParticleTypeDatabase::Proton, particles.at(proton_pos).Tracks().front());
+    } else {
+        // if we have more than 2 PID entries, all combinations are fine
+        particles.at(2) = Particle(ParticleTypeDatabase::Photon, particles.at(2).Tracks().front());
+        particles.at(proton_pos) = Particle(ParticleTypeDatabase::Proton, particles.at(proton_pos).Tracks().front());
+    }
+
+    return true;
 }
 
 void ant::analysis::SaschaPhysics::sort_particles(particle_vector& particles)
