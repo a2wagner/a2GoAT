@@ -1410,7 +1410,9 @@ bool ant::analysis::SaschaPhysics::collect_particles_relative_taps_time(const Tr
 bool ant::analysis::SaschaPhysics::collect_particles_kinfit_selection(const TrackList& tracksCB, const TrackList& tracksTAPS,
                                                                       const TaggerHistList& tagger_hits, particle_vector& particles)
 {
+    const TLorentzVector target(0., 0., 0., ParticleTypeDatabase::Proton.Mass());
     particle_vector candidates;
+
     // we need at least 2 PID entries for the leptons
     if (tracksCB.size() < 2)
         return false;
@@ -1425,6 +1427,10 @@ bool ant::analysis::SaschaPhysics::collect_particles_kinfit_selection(const Trac
     for (const auto& track : tracksTAPS)
         candidates.emplace_back(Particle(ParticleTypeDatabase::Photon, track));
 
+    TLorentzVector meson;
+    TLorentzVector proton;
+    TLorentzVector missing;
+    const interval<double> missM = {850., 1150.};
     double bestChi2 = std::numeric_limits<double>::infinity();
     size_t bestComb = std::numeric_limits<size_t>::infinity();
     size_t comb = 0;
@@ -1449,6 +1455,15 @@ bool ant::analysis::SaschaPhysics::collect_particles_kinfit_selection(const Trac
         beam.Phi_Sigma = .0001;
 
         for (size_t i = 0; i < candidates.size(); i++) {
+            // first test if this combination could be correct to not waste CPU time
+            meson = TLorentzVector(0,0,0,0);
+            for (auto it = candidates.cbegin(); it != candidates.cend()-1; ++it)
+                meson += *it;
+            proton = Particle(ParticleTypeDatabase::Proton, candidates.back().Tracks().front());
+            missing = target + taggerhit->PhotonBeam() - meson - proton;
+            if (!(missM.Contains(missing.M()) && proton.Theta()*TMath::DegToRad() < 90.))
+                continue;
+            // if it looks reasonable, try the kinematic fit
             auto cand = event_cand.begin();
             for (auto it = candidates.cbegin(); it != candidates.cend()-1; ++it)
                 set_fit_particle(*it, *cand++);
@@ -1479,19 +1494,20 @@ bool ant::analysis::SaschaPhysics::collect_particles_kinfit_selection(const Trac
     for (size_t i = 0; i <= bestComb; i++)
         shift_right(candidates);
     // fill particles vector accordingly
-    const Particle proton = Particle(ParticleTypeDatabase::Proton, candidates.back().Tracks().front());
+    const Particle Proton = Particle(ParticleTypeDatabase::Proton, candidates.back().Tracks().front());
     candidates.pop_back();
     // first check if we have enough PID entries for the meson, then sort it
     nCharged = std::count_if(candidates.begin(), candidates.end(),
                              [](const Particle p){ return p.Tracks().front()->Detector() & detector_t::PID; });
     if (nCharged < 2)
         return false;
+    accepted_events->Fill("eta' #PID == 2", 1);
     sort(candidates.begin(), candidates.end(),
          [] (const Particle a, const Particle b){ return a.Tracks().front()->VetoEnergy() > b.Tracks().front()->VetoEnergy(); });
     particles.emplace_back(Particle(ParticleTypeDatabase::eMinus, candidates.at(0).Tracks().front()));
     particles.emplace_back(Particle(ParticleTypeDatabase::eMinus, candidates.at(1).Tracks().front()));
     particles.emplace_back(Particle(ParticleTypeDatabase::Photon, candidates.at(2).Tracks().front()));
-    particles.emplace_back(proton);
+    particles.emplace_back(Proton);
 
     return true;
 }
