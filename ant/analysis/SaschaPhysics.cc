@@ -452,6 +452,7 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     const BinSettings time_bins(1000, -50, 50);
     //const BinSettings im_bins(200, IM-100, IM+100);
     const BinSettings im_bins(1200, 0, 1200);
+    missMtest = HistFac.makeTH1D("missM test", "MM [MeV]", "#", energy_bins, "missMtest");
     cb_esum = HistFac.makeTH1D("CB Energy Sum", "E [MeV]", "#", energy_bins, "cb_esum");
     pid = HistFac.makeTH2D("PID Bananas", "Cluster Energy [MeV]", "Veto Energy [MeV]", energy_bins, veto_bins, "pid");
     tagger_spectrum = HistFac.makeTH1D("Tagger Spectrum", "Photon Beam Energy [MeV]", "#", energy_tagger, "tagger_spectrum");
@@ -964,7 +965,7 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         bool is_prompt = false;
         if (prompt_window.Contains(taggerhit->Time()))
             is_prompt = true;
-        else if (random_window1.Contains(taggerhit->Time()) || random_window1.Contains(taggerhit->Time()))
+        else if (random_window1.Contains(taggerhit->Time()) || random_window2.Contains(taggerhit->Time()))
             is_prompt = false;
         else
             continue;
@@ -1332,7 +1333,7 @@ bool ant::analysis::SaschaPhysics::collect_particles_kinfit_prediction(const Tra
         bool is_prompt = false;
         if (prompt_window.Contains(taggerhit->Time()))
             is_prompt = true;
-        else if (random_window1.Contains(taggerhit->Time()) || random_window1.Contains(taggerhit->Time()))
+        else if (random_window1.Contains(taggerhit->Time()) || random_window2.Contains(taggerhit->Time()))
             is_prompt = false;
         else
             continue;
@@ -1430,7 +1431,7 @@ bool ant::analysis::SaschaPhysics::collect_particles_kinfit_selection(const Trac
     TLorentzVector meson;
     TLorentzVector proton;
     TLorentzVector missing;
-    const interval<double> missM = {850., 1150.};
+    const interval<double> missM = {850., 1050.};
     double bestChi2 = std::numeric_limits<double>::infinity();
     size_t bestComb = std::numeric_limits<size_t>::infinity();
     size_t comb = 0;
@@ -1440,12 +1441,12 @@ bool ant::analysis::SaschaPhysics::collect_particles_kinfit_selection(const Trac
         /*bool is_prompt = false;
         if (prompt_window.Contains(taggerhit->Time()))
             is_prompt = true;
-        else if (random_window1.Contains(taggerhit->Time()) || random_window1.Contains(taggerhit->Time()))
+        else if (random_window1.Contains(taggerhit->Time()) || random_window2.Contains(taggerhit->Time()))
             is_prompt = false;
         else
             continue;*/
-        if (prompt_window.Contains(taggerhit->Time())
-                || random_window1.Contains(taggerhit->Time()) || random_window1.Contains(taggerhit->Time()))
+        if (!(prompt_window.Contains(taggerhit->Time())
+                || random_window1.Contains(taggerhit->Time()) || random_window2.Contains(taggerhit->Time())))
             continue;
 
         beam.SetFromVector(taggerhit->PhotonBeam());
@@ -1460,7 +1461,8 @@ bool ant::analysis::SaschaPhysics::collect_particles_kinfit_selection(const Trac
             for (auto it = candidates.cbegin(); it != candidates.cend()-1; ++it)
                 meson += *it;
             proton = Particle(ParticleTypeDatabase::Proton, candidates.back().Tracks().front());
-            missing = target + taggerhit->PhotonBeam() - meson - proton;
+            missing = target + taggerhit->PhotonBeam() - meson;
+            missMtest->Fill(missing.M());
             if (!(missM.Contains(missing.M()) && proton.Theta()*TMath::DegToRad() < 90.))
                 continue;
             // if it looks reasonable, try the kinematic fit

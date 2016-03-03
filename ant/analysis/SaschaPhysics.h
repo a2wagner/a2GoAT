@@ -247,6 +247,7 @@ protected:
     static constexpr bool USE_KINFIT_PREDICTION = false;
     static constexpr bool USE_RELATIVE_TAPS_TIME = false;
     static constexpr bool USE_KINFIT_SELECTION = true;
+    TH1D* missMtest;  // just to test proton missing mass condition
 
     size_t nParticles, nParticlesCB, nParticlesTAPS;
 
