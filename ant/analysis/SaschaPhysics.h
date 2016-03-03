@@ -246,7 +246,8 @@ protected:
     static constexpr bool USE_OLD_METHOD = false;
     static constexpr bool USE_KINFIT_PREDICTION = false;
     static constexpr bool USE_RELATIVE_TAPS_TIME = false;
-    static constexpr bool USE_KINFIT_SELECTION = true;
+    static constexpr bool USE_KINFIT_SELECTION = false;
+    static constexpr bool USE_SIMPLE_3CB1TAPS = true;
     TH1D* missMtest;  // just to test proton missing mass condition
 
     size_t nParticles, nParticlesCB, nParticlesTAPS;
@@ -362,6 +363,8 @@ protected:
                                               particle_vector& particles);
     bool collect_particles_kinfit_selection(const TrackList& tracksCB, const TrackList& tracksTAPS,
                                             const TaggerHistList& tagger_hits, particle_vector& particles);
+    bool collect_particles_3CB1TAPS(const TrackList& tracksCB, const TrackList& tracksTAPS,
+                                    particle_vector& particles);
 
     double calculate_energy_weighted_cb_time_average(const TrackList&) const;
     void sort_particles(particle_vector&);

@@ -406,9 +406,9 @@ ant::analysis::SaschaPhysics::SaschaPhysics(const mev_t energy_scale) :
     event_cand(nFinalState)
 {
     cout << "Eta' Dalitz Physics:\n";
-    static_assert(USE_OLD_METHOD || USE_KINFIT_PREDICTION || USE_RELATIVE_TAPS_TIME || USE_KINFIT_SELECTION,
+    static_assert(USE_OLD_METHOD || USE_KINFIT_PREDICTION || USE_RELATIVE_TAPS_TIME || USE_KINFIT_SELECTION || USE_SIMPLE_3CB1TAPS,
                   "One particle selection method needs to be chosen!");
-    static_assert((USE_OLD_METHOD + USE_KINFIT_PREDICTION + USE_RELATIVE_TAPS_TIME + USE_KINFIT_SELECTION) == 1,
+    static_assert((USE_OLD_METHOD + USE_KINFIT_PREDICTION + USE_RELATIVE_TAPS_TIME + USE_KINFIT_SELECTION + USE_SIMPLE_3CB1TAPS) == 1,
                   "Only use one particle selection method at a time!");
     cout << "Prompt window: " << prompt_window << " ns\n";
     cout << "Random window 1: " << random_window1 << " ns\n";
@@ -901,6 +901,8 @@ void ant::analysis::SaschaPhysics::ProcessEvent(const ant::Event &event)
         result = collect_particles_relative_taps_time(tracksCB, tracksTAPS, particles);
     else if (USE_KINFIT_SELECTION)
         result = collect_particles_kinfit_selection(tracksCB, tracksTAPS, tagger_hits, particles);
+    else if (USE_SIMPLE_3CB1TAPS)
+        result = collect_particles_3CB1TAPS(tracksCB, tracksTAPS, particles);
     else {
         cerr << "ERROR: not specified how the particles should be collected!" << endl;
         exit(1);
@@ -1404,6 +1406,36 @@ bool ant::analysis::SaschaPhysics::collect_particles_relative_taps_time(const Tr
     accepted_events->Fill("identification", 1);
 
     sort_particles(particles);
+
+    return true;
+}
+
+bool ant::analysis::SaschaPhysics::collect_particles_3CB1TAPS(const TrackList& tracksCB, const TrackList& tracksTAPS,
+                                                              particle_vector& particles)
+{
+    // require all eta' particles in CB
+    if (tracksCB.size() != 3)
+        return false;
+    accepted_events->Fill("#tracks CB", 1);
+    size_t nCharged = 0;
+    for (const auto& track : tracksCB) {
+        if (track->Detector() & detector_t::PID) {
+            particles.emplace_back(Particle(ParticleTypeDatabase::eMinus, track));
+            nCharged++;
+        } else
+            particles.emplace_back(Particle(ParticleTypeDatabase::Photon, track));
+    }
+    if (nCharged != 2)
+        return false;
+    accepted_events->Fill("2 leptons", 1);
+    // swap the photon to the third (last) position
+    for (auto it = particles.begin(); it != particles.end()-1; ++it)
+        if (it->Type() == ParticleTypeDatabase::Photon) {
+            std::iter_swap(it, particles.end()-1);
+            break;
+        }
+    // TAPS cluster is the proton
+    particles.emplace_back(Particle(ParticleTypeDatabase::Proton, tracksTAPS.front()));
 
     return true;
 }
