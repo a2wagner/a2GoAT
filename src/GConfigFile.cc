@@ -88,7 +88,7 @@ Bool_t	GConfigFile::BaseConfig(const int argc, char* argv[], const std::string& 
     }
 
     // Check that config file exists:
-    ifstream cfile(configFile.c_str());
+    std::ifstream cfile(configFile.c_str());
     if(!cfile)
     {
         std::cout << "Config file '" << configFile << "' could not be found." << std::endl;
@@ -100,7 +100,7 @@ Bool_t	GConfigFile::BaseConfig(const int argc, char* argv[], const std::string& 
     if(serverFile.length() > 0)
     {
         // Check that file exists:
-        ifstream sfile(serverFile.c_str());
+        std::ifstream sfile(serverFile.c_str());
         if(!sfile)
         {
             std::cout << "Server file '" << serverFile << "' could not be found" << std::endl;
@@ -275,7 +275,7 @@ std::string GConfigFile::ReadConfig(const std::string& inputKey, const Int_t ins
     std::string str;
     std::string values;
 
-    ifstream configFile;
+    std::ifstream configFile;
 
     configFile.open(configName);
     //std::cout << "config: " << configName << std::endl;
