@@ -55,6 +55,8 @@ set(ANT_PHYSICS
     analysis/SaschaPhysics.cc
     analysis/etap_2g.h
     analysis/etap_2g.cc
+    analysis/etaDalitz_CalibPID.h
+    analysis/etaDalitz_CalibPID.cc
     )
 
 
